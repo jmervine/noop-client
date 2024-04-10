@@ -137,3 +137,56 @@ impl HeaderStringSplit for String {
         Ok((hname, hvalue))
     }
 }
+
+// ------
+// TODO: Figure out how to move tests in to their own file.
+mod tests {
+    use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+
+    use crate::*;
+
+
+    #[test]
+    fn headers_ok_test() {
+        // reused
+        let hval1 = HeaderValue::from_str("application/json").unwrap();
+        let hval2 = HeaderValue::from_str("testing").unwrap();
+
+        // ok
+        let hvec = vec![ 
+            "Content-Type=application/json".to_string(), // standard
+            "X-Foobar=testing".to_string()               // custom
+        ];
+        let mut expected = HeaderMap::new();
+        expected.insert(CONTENT_TYPE, hval1);
+        expected.insert("X-Foobar", hval2);
+
+        //let result  = headers(hvec).unwrap();
+        let result  = hvec.to_headers().unwrap();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn headers_bad_test() {
+        let badvec = vec![ 
+            "Content-Type;application/json".to_string() // bad split
+        ];
+        assert!(badvec.to_headers().is_err(), "should error when not able to split on '='"); 
+    }
+
+    #[test]
+    fn headers_empty_name_test() {
+        let badvec = vec![ 
+            "=application/json".to_string() // empty name 
+        ];
+        assert!(badvec.to_headers().is_err(), "shouldn't allow empty name"); 
+    }
+
+    #[test]
+    fn headers_empty_value_test() {
+        let badvec = vec![ 
+            "content-type=".to_string() // empty value 
+        ];
+        assert!(!badvec.to_headers().is_err(), "should allow empty value"); 
+    }
+}
