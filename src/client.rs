@@ -1,7 +1,6 @@
 use std::str::FromStr;
 use reqwest::blocking::Client as RClient;
 use reqwest::blocking::{Request, Response};
-use reqwest::header::HeaderMap;
 use reqwest::{Url,Method};
 
 use crate::*;
@@ -21,30 +20,35 @@ pub struct Client {
     endpoint: Url,
 }
 
+macro_rules! chk_eclient {
+    ($e:expr, $v:expr) => {
+        if $e.is_err() {
+            return Err(ClientError::NewClientError(format!("{:} (for value: '{:}')", $e.unwrap_err().to_string(), $v)))
+        }
+    };
+}
+
 impl Client {
     // TODO: Refactor to take headers as Vec
-    pub fn new(method: &str, endpoint: &str, headers: HeaderMap, itr: u32) -> Result<Client, ClientError> {
+    pub fn new(method: &str, endpoint: &str, headers: Vec<String>, itr: u32) -> Result<Client, ClientError> {
         let mut builder = RClient::builder();
         if !headers.is_empty() {
-            builder = builder.default_headers(headers);
+            let h = header_map_from_vec(headers);
+            chk_eclient!(h, "headers: Vec<String>");
+
+            builder = builder.default_headers(h.unwrap());
         }
 
         let e = Url::parse(endpoint);
-        if e.is_err() {
-            return Err(ClientError::NewClientError(format!("{:} (for value: '{}')", e.unwrap_err(), endpoint)))
-        }
+        chk_eclient!(e, endpoint);
 
         let m = Method::from_str(method);
-        if m.is_err() {
-            return Err(ClientError::NewClientError(format!("{:} (for value: '{}')", m.unwrap_err(), endpoint)))
-        }
+        chk_eclient!(m, method);
 
         let i = if itr == 0 { 1 } else { itr };
 
         let c = builder.build();
-        if c.is_err() {
-            return Err(ClientError::NewClientError(e.unwrap_err().to_string()))
-        }
+        chk_eclient!(c, "builder.build()");
 
         Ok(Client {
             client: c.unwrap(),
@@ -92,13 +96,13 @@ mod tests {
 
     #[test]
     fn new_test() {
-        let c = Client::new("GET", "http://localhost/", HeaderMap::new(), 0);
+        let c = Client::new("GET", "http://localhost/", vec![], 0);
         assert!(!c.is_err());
 
-        let c1 = Client::new("", "http://localhost/", HeaderMap::new(), 0);
+        let c1 = Client::new("", "http://localhost/", vec![], 0);
         assert!(c1.is_err(), "invalid method");
 
-        let c2 = Client::new("GET", "bad_url", HeaderMap::new(), 0);
+        let c2 = Client::new("GET", "bad_url", vec![], 0);
         assert!(c2.is_err(), "invalid url");
     }
 }

@@ -106,22 +106,26 @@ impl HeaderStringVec for Config {
     }
 }
 
+pub fn header_map_from_vec(headers: Vec<String>) -> Result<HeaderMap, ConfigError> {
+    let mut map = HeaderMap::new(); 
+
+    if headers.is_empty() {
+        return Ok(map)
+    }
+
+    for header in &headers {
+        if !header.is_empty() {
+            let (name, value) = header.clone().to_header()?;
+            map.insert(name, value);
+        }
+    }
+
+    Ok(map)
+}
+
 impl HeaderStringVec for Vec<String> {
     fn to_headers(self) -> Result<HeaderMap, ConfigError> {
-        let mut map = HeaderMap::new(); 
-
-        if self.is_empty() {
-            return Ok(map)
-        }
-
-        for header in &self {
-            if !header.is_empty() {
-                let (name, value) = header.clone().to_header()?;
-                map.insert(name, value);
-            }
-        }
-
-        Ok(map)
+        header_map_from_vec(self)
     }
 }
 

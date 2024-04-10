@@ -27,13 +27,10 @@ fn main() {
 
     let mut results: Vec<(Option<Response>, Option<ClientError>)> = vec![];
     for cfg in configs.unwrap() {
-        let headers = cfg.headers.to_headers();
-        echeck!(headers);
-
         let client = Client::new(
             &cfg.method,
             &cfg.url,
-            headers.unwrap(),
+            cfg.headers,
             cfg.iterations,
         );
         echeck!(client);
