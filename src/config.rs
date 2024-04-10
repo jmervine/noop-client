@@ -43,7 +43,7 @@ pub struct Config {
     #[arg(long, short, default_value = "false")]
     pub verbose: Option<bool>,
 
-    #[arg(long, short = 'n', default_value = "1")]
+    #[arg(long, short = 'n', default_value_t = 1)]
     pub iterations: i32,
 }
 
@@ -66,8 +66,10 @@ impl HeaderStringVec for Vec<String> {
         }
 
         for header in &self {
-            let (name, value) = header.clone().to_header()?;
-            map.insert(name, value);
+            if !header.is_empty() {
+                let (name, value) = header.clone().to_header()?;
+                map.insert(name, value);
+            }
         }
 
         Ok(map)
@@ -113,7 +115,7 @@ impl HeaderStringSplit for String {
         let splitter = splitter_from_list(self.clone(), splitters)?;
         let (sname, svalue) = match self.split_once(splitter) {
             Some((sname, svalue)) => (sname, svalue),
-            None => {
+            _ => {
                 return split_err!(format!("failed to split '{}' on '{}'", self, splitter))
             }
         };

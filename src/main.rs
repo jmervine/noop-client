@@ -57,9 +57,13 @@ macro_rules! unless_debug {
 
 
 fn request(method: &str, endpoint: &str, headers: HeaderMap) -> Result<String, Box<dyn Error>> {
-    let client = Client::builder()
-        .default_headers(headers)
-        .build()?;
+    let mut builder = Client::builder();
+
+    if !headers.is_empty() {
+        builder = builder.default_headers(headers)
+    }
+
+    let client = builder.build()?;
 
     let url = Url::parse(endpoint)?;
     let meth = Method::from_str(method)?;
@@ -74,16 +78,17 @@ fn request(method: &str, endpoint: &str, headers: HeaderMap) -> Result<String, B
     Ok(body)
 }
 
-fn cli_request(cfg: Config) -> Result<String, Box<dyn Error>> {
-    //let headers = headers(cfg.headers)?;
+// TODO: The names of these functions are terrible...
+fn make_request(cfg: Config) -> Result<String, Box<dyn Error>> {
     let headers = match cfg.clone().to_headers() {
         Ok(headers) => headers,
         Err(e) => return Err(e.to_string().into()),
     };
+
     let res = request(
         &cfg.method, &cfg.url, headers
     );
-
+ 
     let body = match res {
         Ok(s) => s,
         Err(e) => format!("ERROR: {}", e.to_string()), 
@@ -99,11 +104,18 @@ fn do_requests(cfg: Config) -> Result<Vec<String>, Box<dyn Error>> {
 
     let mut output: Vec<String> = Vec::new();
 
-    if cfg.input.len() == 0 {
+    if cfg.input.is_empty() {
+        if iters == 1 {
+            let res = make_request(cfg.clone())?;
+            output.push(res);
+            return Ok(output)
+        }
+
         for _ in 0..iters {
-            let res = cli_request(cfg.clone())?;
+            let res = make_request(cfg.clone())?;
             output.push(res);
         }
+
         return Ok(output)
     }
 
@@ -130,7 +142,8 @@ fn do_requests(cfg: Config) -> Result<Vec<String>, Box<dyn Error>> {
                     url = &cfg.url;
                 }
 
-                let vheaders: Vec<String> = if sheaders.len() == 0 || sheaders == "" {
+                //let vheaders: Vec<String> = if sheaders.len() == 0 || sheaders == "" {
+                let vheaders: Vec<String> = if sheaders.is_empty() {
                     cfg.headers.clone()
                 } else {
                     sheaders.split(',')
@@ -138,7 +151,7 @@ fn do_requests(cfg: Config) -> Result<Vec<String>, Box<dyn Error>> {
                         .collect()
                 };
 
-                debug!(format!("Headers: '{}'", vheaders.join(",")));
+                debug!(format!("Headers: '{:#?}'", vheaders));
 
                 let headers = vheaders.to_headers()?;
                 for _ in 0..iters {
