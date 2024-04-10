@@ -141,10 +141,8 @@ impl HeaderStringSplit for String {
 // ------
 // TODO: Figure out how to move tests in to their own file.
 mod tests {
-    use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
-
-    use crate::*;
-
+    #[allow(unused_imports)]
+    use super::*;
 
     #[test]
     fn headers_ok_test() {
@@ -158,7 +156,7 @@ mod tests {
             "X-Foobar=testing".to_string()               // custom
         ];
         let mut expected = HeaderMap::new();
-        expected.insert(CONTENT_TYPE, hval1);
+        expected.insert(reqwest::header::CONTENT_TYPE, hval1);
         expected.insert("X-Foobar", hval2);
 
         //let result  = headers(hvec).unwrap();
