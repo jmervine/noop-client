@@ -1,6 +1,7 @@
 extern crate clap;
 extern crate reqwest;
 
+use std::time::Instant;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::{error::Error, str::FromStr};
@@ -169,12 +170,17 @@ fn do_requests(cfg: Config) -> Result<Vec<String>, Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let start_time = Instant::now();
+
     let args: Config = Config::parse();
     set_verbose!(args.verbose);
 
     let res = do_requests(args)?;
     unless_debug!(format!("\nRequests made: {}", res.len()));
     unless_debug!("\n");
+
+    let duration = Instant::now() - start_time;
+    println!("Run took: {:?}", duration);
 
     Ok(())
 }
