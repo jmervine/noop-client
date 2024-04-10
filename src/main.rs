@@ -9,6 +9,10 @@ use reqwest::blocking::*;
 use reqwest::header::*;
 use reqwest::{Url, Method};
 
+#[path = "config.rs"]
+mod config;
+use config::*;
+
 static mut VERBOSE: bool = false;
 
 // -- macros
@@ -52,54 +56,6 @@ macro_rules! unless_debug {
 }
 
 
-// ------
-#[derive(Parser,Debug,Clone)]
-struct Config {
-    #[arg(long, short, default_value = "http://localhost:3000/")]
-    url: String,
-
-    #[arg(long,short, default_value = "GET")]
-    method: String,
-
-    #[arg(long, short = 'x', default_value = "")]
-    headers: Vec<String>,
-
-    #[arg(long, short, required = false, default_value = "")]
-    input: String,
-
-    #[arg(long, short, required = false, default_value = "")]
-    ouptut: String,
-
-    // TODO: Make '--verbose' without a value work.
-    #[arg(long, short, default_value = "false")]
-    verbose: Option<bool>,
-
-    #[arg(long, short = 'n', default_value = "1")]
-    iterations: i32,
-}
-
-fn headers(headers: Vec<String>) -> Result<HeaderMap, Box<dyn std::error::Error>> {
-    let mut map = HeaderMap::new(); 
-
-    if headers.len() == 0 || headers[0] == "" {
-        return Ok(map)
-    }
-
-    let mut iter = IntoIterator::into_iter(headers);
-    while let Some(head) = iter.next() {
-        let Some((sname, svalue)) = head.split_once("=") else {
-            return Err(format!("Split error on header string: '{}'", head).into());
-        };
-        let hname = HeaderName::try_from(sname)?;
-        let hvalue = HeaderValue::try_from(svalue)?;
-
-        map.insert(hname, hvalue);
-    }
-
-    Ok(map)
-}
-
-//fn request(config: Config) -> Result<String, Box<dyn Error>> {
 fn request(method: &str, endpoint: &str, headers: HeaderMap) -> Result<String, Box<dyn Error>> {
     let client = Client::builder()
         .default_headers(headers)
@@ -119,7 +75,11 @@ fn request(method: &str, endpoint: &str, headers: HeaderMap) -> Result<String, B
 }
 
 fn cli_request(cfg: Config) -> Result<String, Box<dyn Error>> {
-    let headers = headers(cfg.headers)?;
+    //let headers = headers(cfg.headers)?;
+    let headers = match cfg.clone().to_headers() {
+        Ok(headers) => headers,
+        Err(e) => return Err(e.to_string().into()),
+    };
     let res = request(
         &cfg.method, &cfg.url, headers
     );
@@ -180,7 +140,7 @@ fn do_requests(cfg: Config) -> Result<Vec<String>, Box<dyn Error>> {
 
                 debug!(format!("Headers: '{}'", vheaders.join(",")));
 
-                let headers = headers(vheaders)?;
+                let headers = vheaders.to_headers()?;
                 for _ in 0..iters {
                     let body = request(method, url, headers.clone())?;
                     output.push(body);
@@ -228,16 +188,17 @@ mod tests {
         expected.insert(CONTENT_TYPE, hval1);
         expected.insert("X-Foobar", hval2);
 
-        let result  = headers(hvec).unwrap();
+        //let result  = headers(hvec).unwrap();
+        let result  = hvec.to_headers().unwrap();
         assert_eq!(expected, result);
     }
 
     #[test]
     fn headers_bad_test() {
         let badvec = vec![ 
-            "Content-Type::application/json".to_string() // bad split
+            "Content-Type;application/json".to_string() // bad split
         ];
-        assert!(headers(badvec).is_err(), "should error when not able to split on '='"); 
+        assert!(badvec.to_headers().is_err(), "should error when not able to split on '='"); 
     }
 
     #[test]
@@ -245,7 +206,7 @@ mod tests {
         let badvec = vec![ 
             "=application/json".to_string() // empty name 
         ];
-        assert!(headers(badvec).is_err(), "shouldn't allow empty name"); 
+        assert!(badvec.to_headers().is_err(), "shouldn't allow empty name"); 
     }
 
     #[test]
@@ -253,6 +214,6 @@ mod tests {
         let badvec = vec![ 
             "content-type=".to_string() // empty value 
         ];
-        assert!(!headers(badvec).is_err(), "should allow empty value"); 
+        assert!(!badvec.to_headers().is_err(), "should allow empty value"); 
     }
 }

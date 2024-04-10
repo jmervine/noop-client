@@ -5,7 +5,7 @@ edition = "2021"
 
 [[bin]]
 name = "noop-client"
-path = "main.rs"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.5.4", features = ["error-context", "help", "std", "usage", "env", "string", "derive"] }

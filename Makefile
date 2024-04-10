@@ -1,7 +1,9 @@
 RUN := cargo run
 BIN := noop-client
 VERBOSE ?= false
-ARGS ?= --url http://localhost:3000/cli --headers "X-Test-1=makefile1" --headers "X-Test-2=makefile2" -n 5 --input test_requests.txt --verbose=$(VERBOSE)
+ARGS ?= --url http://localhost:3000/cli --headers "X-Test-1=makefile1" \
+			--headers "X-Test-2=makefile2" -n 5 --input examples/test_requests.txt \
+			--verbose=$(VERBOSE)
 
 default: test run_help run run_args
 
