@@ -1,48 +1,11 @@
 use std::error::Error;
+use std::fs::{self, File};
+use std::io::{BufRead, BufReader};
+
 use clap::Parser;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
-// Handle errors
-pub static mut VERBOSE: bool = false;
-
-// -- macros
-#[macro_export]
-macro_rules! is_verbose {
-    () => { ( unsafe { VERBOSE } ) }
-}
-
-#[macro_export]
-macro_rules! set_verbose {
-    ($v:expr) => { unsafe {
-        match $v {
-            Some(true) =>  { VERBOSE = true },
-            _ => { VERBOSE = false },
-        }
-    } }
-}
-
-#[macro_export]
-macro_rules! split_err {
-    ($e:expr) => { Err(ConfigError::ToHeaderSplitError($e)) };
-}
-
-#[macro_export]
-macro_rules! debug {
-    ($s:expr) => { 
-        if is_verbose!() { 
-            println!("[DEBUG]: {}", $s)
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! unless_debug {
-    ($s:expr) => { 
-        if !is_verbose!() { 
-            print!("{}", $s)
-        }
-    };
-}
+use crate::*;
 
 #[derive(Debug)]
 pub enum ConfigError {
@@ -53,9 +16,6 @@ impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
-}
-
-impl Error for ConfigError {
 }
 
 #[derive(Parser,Debug,Clone)]
@@ -80,7 +40,60 @@ pub struct Config {
     pub verbose: Option<bool>,
 
     #[arg(long, short = 'n', default_value_t = 1)]
-    pub iterations: i32,
+    pub iterations: u32,
+}
+
+impl Config {
+    fn has_file(&self) -> bool {
+        if self.input.is_empty() {
+            return false
+        }
+
+        if fs::metadata(self.input.clone()).is_err() {
+            return false
+        }
+
+        return true
+    }
+
+    pub fn to_vec(&self) -> Result<Vec<Config>, Box<dyn Error>> {
+        let mut configs: Vec<Config> = vec![];
+
+        if !self.has_file() {
+            configs.push(self.clone());
+            return Ok(configs)
+        }
+
+        let content = File::open(&self.input)?;
+        let reader = BufReader::new(content);
+
+        configs = reader.lines().map( |line| {
+            let mut new = self.clone();
+
+            let split = line.unwrap_or(String::new());
+            let mut parts = split.split('|').map(|p| p.to_string());
+
+            match parts.next() {
+                Some(v) => if v != "" { new.method = v.to_string(); },
+                _ => ()
+            };
+
+            match parts.next() {
+                Some(v) => if v != "" { new.url = v.to_string(); },
+                _ => ()
+            };
+
+            // headers
+            new.headers = match parts.next() {
+                Some(v) => v.split(',').map(|s|s.to_string()).collect(),
+                None => new.headers
+            };
+
+            new 
+        }).collect();
+
+        Ok(configs)
+    }
 }
 
 pub trait HeaderStringVec {
@@ -181,7 +194,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn headers_ok_test() {
+    fn vec_to_header_test() {
         // reused
         let hval1 = HeaderValue::from_str("application/json").unwrap();
         let hval2 = HeaderValue::from_str("testing").unwrap();
@@ -197,30 +210,21 @@ mod tests {
 
         //let result  = headers(hvec).unwrap();
         let result  = hvec.to_headers().unwrap();
-        assert_eq!(expected, result);
-    }
+        assert_eq!(expected, result, "should create header map");
 
-    #[test]
-    fn headers_bad_test() {
-        let badvec = vec![ 
+        let badvec1 = vec![ 
             "Content-Type;application/json".to_string() // bad split
         ];
-        assert!(badvec.to_headers().is_err(), "should error when not able to split on '='"); 
-    }
+        assert!(badvec1.to_headers().is_err(), "should error when not able to split on '='"); 
 
-    #[test]
-    fn headers_empty_name_test() {
-        let badvec = vec![ 
+        let badvec2 = vec![ 
             "=application/json".to_string() // empty name 
         ];
-        assert!(badvec.to_headers().is_err(), "shouldn't allow empty name"); 
-    }
+        assert!(badvec2.to_headers().is_err(), "shouldn't allow empty name"); 
 
-    #[test]
-    fn headers_empty_value_test() {
-        let badvec = vec![ 
+        let badvec3 = vec![ 
             "content-type=".to_string() // empty value 
         ];
-        assert!(!badvec.to_headers().is_err(), "should allow empty value"); 
+        assert!(!badvec3.to_headers().is_err(), "should allow empty value"); 
     }
 }

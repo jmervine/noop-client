@@ -5,28 +5,26 @@ ARGS ?= --url http://localhost:3000/cli --headers "X-Test-1=makefile1" \
 			--headers "X-Test-2=makefile2" -n 5 --input examples/test_requests.txt \
 			--verbose=$(VERBOSE)
 
-default: 
-	make check 
-	make run_help 
-	make run 
-	make run_args
+default: check test run_help run run_args
 
 run_help:
-	# help
+	# run help
 	$(RUN) --bin $(BIN) -- --help
 
 run:
-	# no args
+	# run no args
 	$(RUN) --bin $(BIN) -- --verbose $(VERBOSE)
 
 run_args:
-	# args
+	# run with args
 	$(RUN) --bin $(BIN) -- $(ARGS) 
 
 test:
+	# cargo test
 	cargo test
 
 check:
+	# cargo check
 	cargo check
 
 .PHONY: test run run_help run_no_args default check
