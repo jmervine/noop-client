@@ -11,51 +11,9 @@ use reqwest::header::*;
 use reqwest::{Url, Method};
 
 #[path = "config.rs"]
+#[macro_use]
 mod config;
 use config::*;
-
-static mut VERBOSE: bool = false;
-
-// -- macros
-macro_rules! is_verbose {
-    () => { ( unsafe { VERBOSE } ) }
-}
-
-macro_rules! set_verbose {
-    ($v:expr) => { 
-        unsafe {
-            match $v {
-                Some(true) =>  { VERBOSE = true },
-                _ => { VERBOSE = false },
-                // Some(false) => { VERBOSE = false },
-                // None => { VERBOSE = false }
-            }
-        }
-    }
-}
-
-// macro_rules! todo {
-//     ($s:expr) => {
-//         println!("[TODO]: {} on line {}", $s, line!())
-//     }
-// }
-
-macro_rules! debug {
-    ($s:expr) => { 
-        if is_verbose!() { 
-            println!("[DEBUG]: {}", $s)
-        }
-    };
-}
-
-macro_rules! unless_debug {
-    ($s:expr) => { 
-        if !is_verbose!() { 
-            print!("{}", $s)
-        }
-    };
-}
-
 
 fn request(method: &str, endpoint: &str, headers: HeaderMap) -> Result<String, Box<dyn Error>> {
     let mut builder = Client::builder();

@@ -3,10 +3,46 @@ use clap::Parser;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
 // Handle errors
+pub static mut VERBOSE: bool = false;
+
+// -- macros
+#[macro_export]
+macro_rules! is_verbose {
+    () => { ( unsafe { VERBOSE } ) }
+}
+
+#[macro_export]
+macro_rules! set_verbose {
+    ($v:expr) => { unsafe {
+        match $v {
+            Some(true) =>  { VERBOSE = true },
+            _ => { VERBOSE = false },
+        }
+    } }
+}
+
+#[macro_export]
 macro_rules! split_err {
     ($e:expr) => { Err(ConfigError::ToHeaderSplitError($e)) };
 }
 
+#[macro_export]
+macro_rules! debug {
+    ($s:expr) => { 
+        if is_verbose!() { 
+            println!("[DEBUG]: {}", $s)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! unless_debug {
+    ($s:expr) => { 
+        if !is_verbose!() { 
+            print!("{}", $s)
+        }
+    };
+}
 
 #[derive(Debug)]
 pub enum ConfigError {
