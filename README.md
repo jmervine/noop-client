@@ -40,7 +40,7 @@ Run took: 121.485161ms
 ### Usage - file input
 ```
 echo "
-# Comments (with '#' on as the first char) and empty lines are ignored.
+# Comments (with '#' as the first char) and empty lines are ignored.
 # Format is '{method}|{endpoint}|{headers}
 GET|http://www.example.com|User-Agent:noop-client,X-Run:run1
 GET|http://www.google.com|User-Agent:noop-client,X-Run:run2

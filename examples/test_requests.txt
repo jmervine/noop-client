@@ -1,4 +1,4 @@
-# Comments (with '#' on as the first char) and empty lines are ignored.
+# Comments (with '#' as the first char) and empty lines are ignored.
 # Format is '{method}|{endpoint}|{headers}
 GET|http://localhost:3000/request1|User-Agent:noop-client,X-Test:run1
 
