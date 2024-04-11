@@ -1,5 +1,11 @@
-|http://localhost:3000/request1|
-POST|http://localhost:3000/request2|X-Test-1=request1,X-Test-2=request2
-DELETE|http://localhost:3000/request3|
-|http://localhost:3000/request4|
+# Comments (with '#' on as the first char) and empty lines are ignored.
+# Format is '{method}|{endpoint}|{headers}
+GET|http://localhost:3000/request1|User-Agent:noop-client,X-Test:run1
+
+# Support all valid methods
+POST|http://localhost:3000/request2|User-Agent:noop-client,X-Test:run2
+DELETE|http://localhost:3000/request3|User-Agent:noop-client,X-Test:run3
+GET|http://localhost:3000/request4|User-Agent:noop-client,X-Test:run4
+
+# Empty method assumes 'GET', empty header assumes none.
 |http://localhost:3000/request5|

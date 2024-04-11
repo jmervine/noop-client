@@ -36,3 +36,22 @@ $ cargo run --bin noop-client -- --url http://www.example.com/ -n 1
 Received result: 1
 Run took: 121.485161ms
 ```
+
+### Usage - file input
+```
+echo "
+# Comments (with '#' on as the first char) and empty lines are ignored.
+# Format is '{method}|{endpoint}|{headers}
+GET|http://www.example.com|User-Agent:noop-client,X-Run:run1
+GET|http://www.google.com|User-Agent:noop-client,X-Run:run2
+GET|http://www.heroku.com|User-Agent:noop-client,X-Run:run3
+
+# Header can be 'key:val' or 'key=val'
+GET|http://www.example.com|User-Agent=noop-client,X-Run=run4
+
+# Empty method assumes 'GET', empty header assumes none.
+|http://www.example.com|
+" > script.txt
+
+cargo run --bin noop-client -- --input=script.txt --iterations=1 --verbose=true
+```

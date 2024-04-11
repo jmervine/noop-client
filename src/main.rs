@@ -15,7 +15,7 @@ use client::*;
 #[macro_use]
 mod macros;
 
-// ----- 
+// -----
 static mut VERBOSE: bool = false;
 
 #[tokio::main]
@@ -63,7 +63,36 @@ async fn main() {
         }
 
         debug!(format!("{:?}", results));
-        println!("Received result: {:?}", results.len());
+
+        let n_results = results.len();
+        println!("Received result: {:?}", n_results);
+
+        // TODO: Create a display mod with an enum for this.
+        let breakdown: Vec<_> = results.into_iter().map(|result| {
+          let o_response = result.0;
+          let o_error = result.1;
+
+          if !o_error.is_none() || o_response.is_none() {
+            return "ERROR"
+          }
+
+          let code = o_response.unwrap().status().as_u16();
+          if code >= 200 || code < 300 {
+            return "SUCCESS"
+          }
+          return "FAILURE"
+        }).collect();
+
+        // TODO: There has to be a better way...
+        macro_rules! count {
+            ($vec:expr, $on:expr) => {
+               $vec.clone().into_iter().filter(|s| s == &$on).collect::<Vec<_>>().len()
+            };
+        }
+
+        println!("         success: {:?}", count!(breakdown, "SUCCESS"));
+        println!("         failure: {:?}", count!(breakdown, "FAILURE"));
+        println!("          errors: {:?}", count!(breakdown, "ERROR"));
 
         let duration = Instant::now() - start_time;
         println!("Run took: {:?}", duration);

@@ -68,7 +68,15 @@ impl Config {
         let content = File::open(&self.input)?;
         let reader = BufReader::new(content);
 
-        configs = reader.lines().map( |line| {
+        configs = reader.lines().filter(|line| {
+          match &line {
+            Ok(l) => {
+              // Empty lines and '#' based comments are ignored
+              !(l.is_empty() || l.to_string().starts_with("#"))
+            },
+            Err(_) => false
+          }
+        }).map( |line| {
             let mut new = self.clone();
 
             let split = line.unwrap_or(String::new());
