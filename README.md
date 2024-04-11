@@ -17,14 +17,14 @@ These targets will give you some ideas on how to use it.
 ```
 $ cargo run --bin noop-client -- --help
 #... build output omitted ...
-Usage: noop-client [OPTIONS] --endpoint <ENDPOINT>
+Usage: noop-client [OPTIONS]
 
 Options:
-  -e, --endpoint <ENDPOINT>
+  -e, --endpoint <O_ENDPOINT>
   -m, --method <METHOD>          [default: GET]
   -x, --headers <HEADERS>        [default: ]
-  -i, --input <INPUT>            [default: ]
-  -v, --verbose <VERBOSE>        [default: false] [possible values: true, false]
+  -s, --script <O_SCRIPT>
+  -v, --verbose <O_VERBOSE>      [possible values: true, false]
   -n, --iterations <ITERATIONS>  [default: 1]
   -h, --help                     Print help
 ```

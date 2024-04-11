@@ -39,7 +39,7 @@ pub struct Config {
     // pub output: String,
 
     // TODO: Make '--verbose' without a value work.
-    #[arg(long="verbose", short='v', default_value = "false")]
+    #[arg(long="verbose", short='v')]
     pub o_verbose: Option<bool>,
 
     #[arg(long, short = 'n', default_value_t = 1)]
