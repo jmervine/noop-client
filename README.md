@@ -34,7 +34,10 @@ Options:
 $ cargo run --bin noop-client -- --url http://www.example.com/ -n 1
 #... build output omitted ...
 Received result: 1
-Run took: 121.485161ms
+        success: 1
+        failure: 0
+         errors: 0
+Run took: 89.491925ms
 ```
 
 ### Usage - file input
