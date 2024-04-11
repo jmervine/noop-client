@@ -17,10 +17,10 @@ These targets will give you some ideas on how to use it.
 ```
 $ cargo run --bin noop-client -- --help
 #... build output omitted ...
-Usage: noop-client [OPTIONS]
+Usage: noop-client [OPTIONS] --endpoint <ENDPOINT>
 
 Options:
-  -u, --url <URL>                [default: http://localhost:3000/]
+  -e, --endpoint <ENDPOINT>
   -m, --method <METHOD>          [default: GET]
   -x, --headers <HEADERS>        [default: ]
   -i, --input <INPUT>            [default: ]
@@ -31,7 +31,7 @@ Options:
 
 ### Usage - basic
 ```
-$ cargo run --bin noop-client -- --url http://www.example.com/ -n 1
+$ cargo run --bin noop-client -- --url http://www.example.com/
 #... build output omitted ...
 Received result: 1
         success: 1

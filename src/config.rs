@@ -20,8 +20,8 @@ impl std::fmt::Display for ConfigError {
 
 #[derive(Parser,Debug,Clone)]
 pub struct Config {
-    #[arg(long, short, default_value = "http://localhost:3000/")]
-    pub url: String,
+    #[arg(long, short)]
+    pub endpoint: String, // REQUIRED
 
     #[arg(long,short, default_value = "GET")]
     pub method: String,
@@ -88,7 +88,7 @@ impl Config {
             };
 
             match parts.next() {
-                Some(v) => if v != "" { new.url = v.to_string(); },
+                Some(v) => if v != "" { new.endpoint = v.to_string(); },
                 _ => ()
             };
 
