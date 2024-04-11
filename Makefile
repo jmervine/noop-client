@@ -13,23 +13,26 @@ run_help:
 	# run help
 	$(RUN) --bin $(BIN) -- --help
 
-.PHONY: run 
+.PHONY: run
 run:
 	# run no args
 	$(RUN) --bin $(BIN) -- --verbose $(VERBOSE)
 
-.PHONY: run_args 
+.PHONY: run_args
 run_args:
 	# run with args
-	$(RUN) --bin $(BIN) -- $(ARGS) 
+	$(RUN) --bin $(BIN) -- $(ARGS)
 
-.PHONY: test 
+.PHONY: test
 test:
 	# cargo test
 	cargo test
 
 .PHONY: functional
-functional: start_async_listener run run_args stop_async_listener
+functional:
+	make start_async_listener
+	$(RUN) --bin $(BIN) -- --iterations=100000
+	make stop_async_listener
 
 .PHONY: check
 check:
@@ -57,6 +60,6 @@ stop_async_listener:
 	# kill noop-server
 	@kill -9 $(shell ps aux | grep noop-server | grep -v grep | awk '{ print $$2 }')
 
-.PHONY: clean 
+.PHONY: clean
 clean:
 	rm -rf target

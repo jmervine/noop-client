@@ -90,9 +90,9 @@ async fn main() {
             };
         }
 
-        println!("         success: {:?}", count!(breakdown, "SUCCESS"));
-        println!("         failure: {:?}", count!(breakdown, "FAILURE"));
-        println!("          errors: {:?}", count!(breakdown, "ERROR"));
+        println!("        success: {:?}", count!(breakdown, "SUCCESS"));
+        println!("        failure: {:?}", count!(breakdown, "FAILURE"));
+        println!("         errors: {:?}", count!(breakdown, "ERROR"));
 
         let duration = Instant::now() - start_time;
         println!("Run took: {:?}", duration);
