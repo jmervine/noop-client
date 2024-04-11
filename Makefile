@@ -1,9 +1,8 @@
 RUN := cargo run
 BIN := noop-client
 VERBOSE ?= false
-ARGS ?= --endpoint http://localhost:3000/ignored --headers "X-Test-1=makefile1" \
-			--headers "X-Test-2=makefile2" -n 15 --input examples/test_requests.txt \
-			--verbose=$(VERBOSE)
+ARGS ?= --endpoint http://localhost:3000/default --headers "X-Test-1=makefile1" \
+			--headers "X-Test-2=makefile2" -n 15 --verbose=$(VERBOSE)
 
 .PHONY: default
 default: check test run_help run run_args
@@ -22,6 +21,11 @@ run:
 run_args:
 	# run with args
 	$(RUN) --bin $(BIN) -- $(ARGS)
+
+run_script:
+	# run with script file
+	$(RUN) --bin $(BIN) -- --input=examples/test_requests.txt \
+		--endpoint=http://localhost:3000/default --verbose=$(VERBOSE)
 
 .PHONY: test
 test:

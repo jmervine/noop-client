@@ -22,6 +22,7 @@ impl std::fmt::Display for ConfigError {
 pub struct Config {
     #[arg(long, short)]
     pub endpoint: String, // REQUIRED
+    // TODO: This shouldn't be required when 'input' is passed.
 
     #[arg(long,short, default_value = "GET")]
     pub method: String,
@@ -68,6 +69,9 @@ impl Config {
         let content = File::open(&self.input)?;
         let reader = BufReader::new(content);
 
+        // Count line iterations
+        let mut i: usize = 0;
+
         configs = reader.lines().filter(|line| {
           match &line {
             Ok(l) => {
@@ -76,26 +80,59 @@ impl Config {
             },
             Err(_) => false
           }
-        }).map( |line| {
+        }).map( |r_line| {
+            let line = r_line.unwrap_or(String::new());
+
+            i += 1;
+
             let mut new = self.clone();
 
-            let split = line.unwrap_or(String::new());
-            let mut parts = split.split('|').map(|p| p.to_string());
+            // Find the number of '|' characters (+1) to ensure all fields are present.
+            let n = line.chars().filter(|&c| c == '|').count() + 1;
+            if n != 4 {
+              // TODO: Rework the entire function to allow for better error handling.
+              //       Ideally, create a parser mod or something.
+              panic!(
+                "---\n\
+                ERROR: Found {} of 4 expected fields in '{}' for file:'{}', entry:'{}'\n\
+                >TODO: Rework the entire function to allow for better error handling @ {}:{}.\n",
+                n, line, &self.input, i, file!(), line!());
+            }
 
+            let mut parts = line.split('|').map(|p| p.to_string());
+
+            // Fetch for iterations, or use default from 'new'
             match parts.next() {
-                Some(v) => if v != "" { new.method = v.to_string(); },
+                Some(v) => match v.parse::<usize>() {
+                  Ok(v) => { new.iterations = v },
+                  Err(_) => ()
+                },
                 _ => ()
             };
 
+            // Fetch for method, or use default from 'new'
             match parts.next() {
-                Some(v) => if v != "" { new.endpoint = v.to_string(); },
+                Some(v) => if v != "" {
+                  new.method = v.to_string();
+                },
                 _ => ()
             };
 
-            // headers
-            new.headers = match parts.next() {
-                Some(v) => v.split(',').map(|s|s.to_string()).collect(),
-                None => new.headers
+            // Fetch for endpoint, or use default from 'new'
+            // TODO: Handle errors once when endpoint is no longer required.
+            match parts.next() {
+                Some(v) => if v != "" {
+                  new.endpoint = v.to_string();
+                },
+                _ => ()
+            };
+
+            // Fetch for headers, or use default from 'new'
+            match parts.next() {
+                Some(v) => if !v.is_empty() {
+                  new.headers = v.split(',').map(|s|s.to_string()).collect()
+                },
+                _ => ()
             };
 
             new

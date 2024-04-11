@@ -44,16 +44,16 @@ Run took: 89.491925ms
 ```
 echo "
 # Comments (with '#' as the first char) and empty lines are ignored.
-# Format is '{method}|{endpoint}|{headers}
-GET|http://www.example.com|User-Agent:noop-client,X-Run:run1
-GET|http://www.google.com|User-Agent:noop-client,X-Run:run2
-GET|http://www.heroku.com|User-Agent:noop-client,X-Run:run3
+# Format is '{iterations:-1}|{method:-GET}|{endpoint}|{headers:-}
+6|GET|http://localhost:3000/request1|User-Agent:noop-client,X-Test:run1
 
-# Header can be 'key:val' or 'key=val'
-GET|http://www.example.com|User-Agent=noop-client,X-Run=run4
+# Support all valid methods
+1|POST|http://localhost:3000/request2|User-Agent:noop-client,X-Test:run2
+1|DELETE|http://localhost:3000/request3|User-Agent:noop-client,X-Test:run3
+1|GET|http://localhost:3000/request4|User-Agent:noop-client,X-Test:run4
 
-# Empty method assumes 'GET', empty header assumes none.
-|http://www.example.com|
+# Empty assumes defaults, see '--help'
+|||
 " > script.txt
 
 cargo run --bin noop-client -- --input=script.txt --iterations=1 --verbose=true
