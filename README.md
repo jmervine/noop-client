@@ -40,7 +40,7 @@ Received result: 1
 Run took: 89.491925ms
 ```
 
-### Usage - file input
+### Usage - script file
 ```
 echo "
 # Comments (with '#' as the first char) and empty lines are ignored.
@@ -52,9 +52,10 @@ echo "
 1|DELETE|http://localhost:3000/request3|User-Agent:noop-client,X-Test:run3
 1|GET|http://localhost:3000/request4|User-Agent:noop-client,X-Test:run4
 
-# Empty assumes defaults, see '--help'
+# Empty assumes defaults, see '--help', will error without 'endpoint' arg
 |||
 " > script.txt
 
-cargo run --bin noop-client -- --input=script.txt --iterations=1 --verbose=true
+cargo run --bin noop-client -- --script=script.txt --iterations=1 --verbose=true \
+  --endpoint=https://www.example.com/
 ```
