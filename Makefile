@@ -33,6 +33,14 @@ check:
 	# cargo check
 	cargo check
 
+.PHONY: server
+server:
+	# Ensure server
+	@if [ -z "$(shell which noop-server)" ]; then go install github.com/jmervine/noop-server@latest; fi
+	# Start server with 'tee', or just start if 'tee' not found...
+	#> VERBOSE=true noop-server
+	@(VERBOSE=true noop-server | tee server.log) 2> /dev/null || echoVERBOSE=true noop-server
+
 .PHONY: clean 
 clean:
 	rm -rf target
