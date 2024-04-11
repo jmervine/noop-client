@@ -1,49 +1,71 @@
 extern crate clap;
 extern crate reqwest;
 
+mod config;
+mod client;
+
 use std::time::Instant;
 use clap::Parser;
-use reqwest::blocking::Response;
+use std::sync::mpsc;
+use reqwest::Response;
+
+use config::*;
+use client::*;
 
 #[macro_use]
 mod macros;
 
-mod config;
-use config::*;
-
-mod client;
-use client::*;
-
+// ----- 
 static mut VERBOSE: bool = false;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let start_time = Instant::now();
+
+    // Create a channel for communication
+    // let (sender, recv) = mpsc::channel();
+    let (sender, recv) = mpsc::channel();
 
     let config: Config = Config::parse();
     set_verbose!(config.verbose);
 
-    let configs = config.to_vec();
-    echeck!(configs);
+    // coroutine::scope( |scope| {
+    //     let send = sender.clone();
 
-    let mut results: Vec<(Option<Response>, Option<ClientError>)> = vec![];
-    for cfg in configs.unwrap() {
-        let client = Client::new(
-            &cfg.method,
-            &cfg.url,
-            cfg.headers,
-            cfg.iterations,
-        );
-        echeck!(client);
+        let r_configs = config.to_vec();
+        echeck!(r_configs);
 
-        let mut res = client.unwrap().run();
-        debugln!(format!("+ batch count: {}", res.len()));
-        results.append(&mut res);
-    }
+        let configs = r_configs.unwrap();
 
-    let duration = Instant::now() - start_time;
+        let expect: usize = configs.clone().into_iter().map( |c| c.iterations).sum();
 
-    unless_debugln!("------");
-    unless_debugln!(format!("Requests made: {}", results.len()));
-    println!("Run took: {:?}", duration);
+        let mut results: Vec<(Option<Response>, Option<ClientError>)> = vec![];
+        for c in configs {
+            let send = sender.clone();
+            tokio::spawn( async move {
+                let r_client = Client::new(&c.method, &c.url, c.headers, c.iterations);
+                echeck!(r_client);
 
+                let client = r_client.unwrap();
+                let result = client.run().await;
+
+                let sent = send.send(result);
+                echeck!(sent);
+            });
+        }
+
+        while results.len() < expect {
+            let r_result = recv.recv();
+            echeck!(r_result);
+            let mut result = r_result.unwrap();
+
+            results.append(&mut result);
+        }
+
+        debug!(format!("{:?}", results));
+        println!("Received result: {:?}", results.len());
+
+        let duration = Instant::now() - start_time;
+        println!("Run took: {:?}", duration);
+    // });
 }

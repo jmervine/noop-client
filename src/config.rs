@@ -40,7 +40,7 @@ pub struct Config {
     pub verbose: Option<bool>,
 
     #[arg(long, short = 'n', default_value_t = 1)]
-    pub iterations: u32,
+    pub iterations: usize,
 }
 
 impl Config {

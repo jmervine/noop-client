@@ -1,6 +1,6 @@
 use std::str::FromStr;
-use reqwest::blocking::Client as RClient;
-use reqwest::blocking::{Request, Response};
+use reqwest::Client as RClient;
+use reqwest::{Request, Response};
 use reqwest::{Url,Method};
 
 use crate::*;
@@ -14,7 +14,7 @@ pub enum ClientError {
 #[derive(Debug)]
 pub struct Client {
     client: RClient,
-    iterations: u32,
+    iterations: usize,
 
     method: Method,
     endpoint: Url,
@@ -30,7 +30,7 @@ macro_rules! chk_eclient {
 
 impl Client {
     // TODO: Refactor to take headers as Vec
-    pub fn new(method: &str, endpoint: &str, headers: Vec<String>, itr: u32) -> Result<Client, ClientError> {
+    pub fn new(method: &str, endpoint: &str, headers: Vec<String>, itr: usize) -> Result<Client, ClientError> {
         let mut builder = RClient::builder();
         if !headers.is_empty() {
             let h = header_map_from_vec(headers);
@@ -62,10 +62,10 @@ impl Client {
         Request::new(self.method.clone(), self.endpoint.clone())
     }
 
-    fn exec(&self) -> Result<Response, ClientError> {
+    async fn exec(&self) -> Result<Response, ClientError> {
         let req = self.request();
         debug!(format!("{:?}", req));
-        let res: Response = match self.client.execute(req) {
+        let res: Response = match self.client.execute(req).await {
             Ok(res) => res,
             Err(e)  => return Err(ClientError::ClientRequestError(e.to_string()))
         };
@@ -75,11 +75,10 @@ impl Client {
     }
 
     // Return a vector of tuples with response and optional error
-    pub fn run(&self) -> Vec<(Option<Response>, Option<ClientError>)> {
+    pub async fn run(&self) -> Vec<(Option<Response>, Option<ClientError>)> {
         let mut results: Vec<(Option<Response>, Option<ClientError>)> = vec![];
-
         for _ in 0..self.iterations {
-            let result = self.exec();
+            let result = self.exec().await;
             match result {
                 Ok(res) => results.push((Some(res), None)),
                 Err(e)  => results.push((None, Some(e)))
