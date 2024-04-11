@@ -3,7 +3,7 @@
 > welcome through issues, or otherwise.**
 
 This is a (hopefully) simple method of sending http requests (kind of like curl). Either
-directly, or via a pipe delimited text file -- see (examples/test_requests.txt)[examples/test_requests.txt]).
+directly, or via a pipe delimited text file -- see [examples/test_requests.txt](examples/test_requests.txt).
 
 This is still in development, but to get started, run...
 
