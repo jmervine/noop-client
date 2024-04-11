@@ -4,8 +4,8 @@ VERBOSE ?= false
 ARGS ?= --endpoint http://localhost:3000/default --headers "X-Test-1=makefile1" \
 			--headers "X-Test-2=makefile2" -n 15 --verbose=$(VERBOSE)
 
-.PHONY: default
-default: check test run_help run run_args
+.PHONY: default $(RUN_TARGETS)
+default: check test run_help run run_args run_script
 
 .PHONY: run_help
 run_help:
@@ -24,7 +24,7 @@ run_args:
 
 run_script:
 	# run with script file
-	$(RUN) --bin $(BIN) -- --input=examples/test_requests.txt \
+	$(RUN) --bin $(BIN) -- --script=examples/test_requests.txt \
 		--endpoint=http://localhost:3000/default --verbose=$(VERBOSE)
 
 .PHONY: test

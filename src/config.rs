@@ -9,6 +9,7 @@ use crate::*;
 
 #[derive(Debug)]
 pub enum ConfigError {
+    InvalidConfigurationError(String),
     ToHeaderSplitError(String)
 }
 
@@ -20,8 +21,8 @@ impl std::fmt::Display for ConfigError {
 
 #[derive(Parser,Debug,Clone)]
 pub struct Config {
-    #[arg(long, short)]
-    pub endpoint: String, // REQUIRED
+    #[arg(long="endpoint", short='e')]
+    pub o_endpoint: Option<String>, // REQUIRED
     // TODO: This shouldn't be required when 'input' is passed.
 
     #[arg(long,short, default_value = "GET")]
@@ -30,28 +31,56 @@ pub struct Config {
     #[arg(long, short = 'x', default_value = "")]
     pub headers: Vec<String>,
 
-    #[arg(long, short, required = false, default_value = "")]
-    pub input: String,
+    #[arg(long="script", short='s')]
+    pub o_script: Option<String>,
 
     // TODO: Implement
     // #[arg(long, short, required = false, default_value = "")]
     // pub output: String,
 
     // TODO: Make '--verbose' without a value work.
-    #[arg(long, short, default_value = "false")]
-    pub verbose: Option<bool>,
+    #[arg(long="verbose", short='v', default_value = "false")]
+    pub o_verbose: Option<bool>,
 
     #[arg(long, short = 'n', default_value_t = 1)]
     pub iterations: usize,
 }
 
 impl Config {
+    pub fn validate(&self) -> Option<ConfigError> {
+        if self.endpoint().is_empty() && self.script().is_empty() {
+            return Some(ConfigError::InvalidConfigurationError(
+                "Either endpoint or script must be set, with script \
+                a default endpoint is required for empty endpoint fields".to_string()
+            ))
+        }
+
+        None
+    }
+    pub fn endpoint(&self) -> String {
+        match &self.o_endpoint {
+            Some(endpoint) => endpoint.clone(), _ => String::new()
+        }
+    }
+
+    pub fn script(&self) -> String {
+        match &self.o_script {
+            Some(script) => script.clone(), _ => String::new()
+        }
+    }
+
+    pub fn verbose(&self) -> bool {
+        match self.o_verbose {
+            Some(verbose) => verbose, _ => false
+        }
+    }
+
     fn has_file(&self) -> bool {
-        if self.input.is_empty() {
+        if self.script().is_empty() {
             return false
         }
 
-        if fs::metadata(self.input.clone()).is_err() {
+        if fs::metadata(self.script().clone()).is_err() {
             return false
         }
 
@@ -66,7 +95,7 @@ impl Config {
             return Ok(configs)
         }
 
-        let content = File::open(&self.input)?;
+        let content = File::open(&self.script())?;
         let reader = BufReader::new(content);
 
         // Count line iterations
@@ -81,6 +110,7 @@ impl Config {
             Err(_) => false
           }
         }).map( |r_line| {
+            // TODO: Make this block a function, or a few functions
             let line = r_line.unwrap_or(String::new());
 
             i += 1;
@@ -90,13 +120,10 @@ impl Config {
             // Find the number of '|' characters (+1) to ensure all fields are present.
             let n = line.chars().filter(|&c| c == '|').count() + 1;
             if n != 4 {
-              // TODO: Rework the entire function to allow for better error handling.
-              //       Ideally, create a parser mod or something.
-              panic!(
-                "---\n\
-                ERROR: Found {} of 4 expected fields in '{}' for file:'{}', entry:'{}'\n\
-                >TODO: Rework the entire function to allow for better error handling @ {}:{}.\n",
-                n, line, &self.input, i, file!(), line!());
+                bad_error!(format!(
+                    "Found {} of 4 expected fields in '{}' for file:'{}', entry:'{}'",
+                    n, line, &self.script(), i
+                ));
             }
 
             let mut parts = line.split('|').map(|p| p.to_string());
@@ -122,10 +149,17 @@ impl Config {
             // TODO: Handle errors once when endpoint is no longer required.
             match parts.next() {
                 Some(v) => if v != "" {
-                  new.endpoint = v.to_string();
+                  new.o_endpoint = Some(v.to_string());
                 },
                 _ => ()
             };
+
+            if new.endpoint().is_empty(){
+                bad_error!(format!(
+                    "Empty endpoint without a default in '{}' for file:'{}', entry:'{}'",
+                    line, &self.script(), i
+                ));
+            }
 
             // Fetch for headers, or use default from 'new'
             match parts.next() {
@@ -134,6 +168,9 @@ impl Config {
                 },
                 _ => ()
             };
+
+            // panic if not valid
+            some_bad_error!(new.validate());
 
             new
         }).collect();
