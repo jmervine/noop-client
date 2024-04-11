@@ -32,8 +32,9 @@ pub struct Config {
     #[arg(long, short, required = false, default_value = "")]
     pub input: String,
 
-    #[arg(long, short, required = false, default_value = "")]
-    pub ouptut: String,
+    // TODO: Implement
+    // #[arg(long, short, required = false, default_value = "")]
+    // pub output: String,
 
     // TODO: Make '--verbose' without a value work.
     #[arg(long, short, default_value = "false")]
@@ -89,7 +90,7 @@ impl Config {
                 None => new.headers
             };
 
-            new 
+            new
         }).collect();
 
         Ok(configs)
@@ -107,7 +108,7 @@ impl HeaderStringVec for Config {
 }
 
 pub fn header_map_from_vec(headers: Vec<String>) -> Result<HeaderMap, ConfigError> {
-    let mut map = HeaderMap::new(); 
+    let mut map = HeaderMap::new();
 
     if headers.is_empty() {
         return Ok(map)
@@ -204,7 +205,7 @@ mod tests {
         let hval2 = HeaderValue::from_str("testing").unwrap();
 
         // ok
-        let hvec = vec![ 
+        let hvec = vec![
             "Content-Type=application/json".to_string(), // standard
             "X-Foobar=testing".to_string()               // custom
         ];
@@ -216,19 +217,19 @@ mod tests {
         let result  = hvec.to_headers().unwrap();
         assert_eq!(expected, result, "should create header map");
 
-        let badvec1 = vec![ 
+        let badvec1 = vec![
             "Content-Type;application/json".to_string() // bad split
         ];
-        assert!(badvec1.to_headers().is_err(), "should error when not able to split on '='"); 
+        assert!(badvec1.to_headers().is_err(), "should error when not able to split on '='");
 
-        let badvec2 = vec![ 
-            "=application/json".to_string() // empty name 
+        let badvec2 = vec![
+            "=application/json".to_string() // empty name
         ];
-        assert!(badvec2.to_headers().is_err(), "shouldn't allow empty name"); 
+        assert!(badvec2.to_headers().is_err(), "shouldn't allow empty name");
 
-        let badvec3 = vec![ 
-            "content-type=".to_string() // empty value 
+        let badvec3 = vec![
+            "content-type=".to_string() // empty value
         ];
-        assert!(!badvec3.to_headers().is_err(), "should allow empty value"); 
+        assert!(!badvec3.to_headers().is_err(), "should allow empty value");
     }
 }
