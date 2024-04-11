@@ -7,10 +7,7 @@ macro_rules! is_verbose {
 #[macro_export]
 macro_rules! set_verbose {
     ($v:expr) => { unsafe {
-        match $v {
-            Some(true) =>  { crate::VERBOSE = true },
-            _ => { crate::VERBOSE = false },
-        }
+        crate::VERBOSE = $v
     } }
 }
 
@@ -21,8 +18,8 @@ macro_rules! split_err {
 
 #[macro_export]
 macro_rules! debug {
-    ($s:expr) => { 
-        if is_verbose!() { 
+    ($s:expr) => {
+        if is_verbose!() {
             println!("[DEBUG]: {}", $s)
         }
     };
@@ -37,8 +34,8 @@ macro_rules! debugln {
 
 #[macro_export]
 macro_rules! unless_debug {
-    ($s:expr) => { 
-        if !is_verbose!() { 
+    ($s:expr) => {
+        if !is_verbose!() {
             print!("{}", $s)
         }
     };
@@ -61,6 +58,29 @@ macro_rules! echeck {
     };
 }
 
+// TODO: Remove macros after fixing error handling to "be better"(^TM)
+#[macro_export]
+macro_rules! bad_error {
+    ($msg:expr) => {
+        panic!(
+            "---\n\
+            ERROR: {:?}\n\
+            >TODO: Rework the entire function to allow for better error handling @ {}:{}.\n",
+            $msg, file!(), line!()
+        );
+    }
+}
+
+// TODO: Remove macros after fixing error handling to "be better"(^TM)
+#[macro_export]
+macro_rules! some_bad_error {
+    ($err:expr) => {
+        if let Some(err) = $err {
+            bad_error!(err);
+        }
+    }
+}
+
 mod test {
     #[test]
     fn is_verbose_test() {
@@ -74,15 +94,11 @@ mod test {
     #[test]
     fn set_verbose_test() {
         unsafe { crate::VERBOSE = false; }
-        set_verbose!(Some(true));
+        set_verbose!(true);
         assert!(unsafe { crate::VERBOSE }, "should return true");
 
         unsafe { crate::VERBOSE = true; }
-        set_verbose!(Some(false));
-        assert!(!unsafe { crate::VERBOSE }, "should return false");
-
-        unsafe { crate::VERBOSE = true; }
-        set_verbose!(None);
+        set_verbose!(false);
         assert!(!unsafe { crate::VERBOSE }, "should return false");
     }
 }

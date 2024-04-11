@@ -27,7 +27,8 @@ async fn main() {
     let (sender, recv) = mpsc::channel();
 
     let config: Config = Config::parse();
-    set_verbose!(config.verbose);
+    some_bad_error!(config.validate());
+    set_verbose!(config.verbose());
 
     // coroutine::scope( |scope| {
     //     let send = sender.clone();
@@ -43,7 +44,7 @@ async fn main() {
         for c in configs {
             let send = sender.clone();
             tokio::spawn( async move {
-                let r_client = Client::new(&c.method, &c.url, c.headers, c.iterations);
+                let r_client = Client::new(&c.method, &c.endpoint(), c.headers, c.iterations);
                 echeck!(r_client);
 
                 let client = r_client.unwrap();
