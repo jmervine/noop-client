@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use crate::*;
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Client {
     client: RClient,
     iterations: usize,
@@ -16,7 +16,12 @@ pub struct Client {
 
 impl Client {
     // TODO: Refactor to take headers as Vec
-    pub fn new(method: &str, endpoint: &str, headers: Vec<String>, itr: usize) -> Result<Client, utils::Errors> {
+    pub fn new(
+        method: &str,
+        endpoint: &str,
+        headers: Vec<String>,
+        itr: usize,
+    ) -> Result<Client, utils::Errors> {
         let mut builder = RClient::builder();
         if !headers.is_empty() {
             let header = header_map_from_vec(headers);
@@ -27,23 +32,27 @@ impl Client {
 
         let e = Url::parse(endpoint);
         if e.is_err() {
-            return error!(e)
+            return error!(e);
         }
 
         let m = Method::from_str(method);
         if m.is_err() {
-            return error!(m)
+            return error!(m);
         }
 
         let i = if itr == 0 { 1 } else { itr };
 
         let c = builder.build();
         if c.is_err() {
-            return error!(c)
+            return error!(c);
         }
 
-        Ok(Client { client: c.unwrap(), method: m.unwrap(),
-                    endpoint: e.unwrap(), iterations: i })
+        Ok(Client {
+            client: c.unwrap(),
+            method: m.unwrap(),
+            endpoint: e.unwrap(),
+            iterations: i,
+        })
     }
 
     fn request(&self) -> Request {
@@ -55,10 +64,13 @@ impl Client {
         debug!(format!("{:?}", req));
         let res = self.client.execute(req).await;
         if res.is_err() {
-            return error!(res)
+            return error!(res);
         }
 
-        Ok(res.unwrap())
+        let r = res.unwrap();
+        debug!(format!("{:?}", r));
+
+        Ok(r)
     }
 
     // Return a vector of tuples with response and optional error

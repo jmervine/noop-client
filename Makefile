@@ -5,7 +5,7 @@ ARGS ?= --endpoint http://localhost:3000/default --headers "X-Test-1:makefile1" 
 			--headers "X-Test-2=makefile2" -n 15 --verbose=$(VERBOSE)
 
 .PHONY: default
-default: check test run_help run run_args run_script
+default: format check test run_help run run_args run_script
 
 .PHONY: run_help
 run_help:
@@ -24,51 +24,33 @@ run_args:
 
 run_script:
 	# run with script file
-	$(RUN) --bin $(BIN) -- --script=examples/test_requests.txt \
+	$(RUN) --bin $(BIN) -- --script=examples/test_script.txt \
 		--endpoint=http://localhost:3000/default --verbose=$(VERBOSE)
+
+run_load: build
+	./target/release/noop-client -s ./examples/load_script.txt
 
 .PHONY: test
 test:
 	# cargo test
 	cargo test --bin $(BIN)
 
-.PHONY: functional
-functional:
-	make start_async_listener
-	$(RUN) --bin $(BIN) -- --iterations=100000
-	make stop_async_listener
-
 .PHONY: check
 check:
 	# cargo check
 	cargo check
 
-.PHONY: ensure_listener
-ensure_server:
-	# Ensure server
-	@if [ -z "$(shell which noop-server)" ]; then go install github.com/jmervine/noop-server@latest; fi
-
-.PHONY: listener
-listener: ensure_server
-	# Start server with 'tee', or just start if 'tee' not found...
-	#> VERBOSE=true noop-server
-	@(VERBOSE=true noop-server | tee server.log) 2> /dev/null || echoVERBOSE=true noop-server
-
-.PHONY: start_async_listener
-start_async_listener: ensure_server
-	#> VERBOSE=true noop-server
-	@( VERBOSE=true noop-server > server.log ) &
-
-.PHONY: stop_async_listener
-stop_async_listener:
-	# kill noop-server
-	@kill -9 $(shell ps aux | grep noop-server | grep -v grep | awk '{ print $$2 }')
-
-.PHONY: clean
-clean:
-	rm -rf target
-
 .PHONY: format
 format:
 	# format files
 	rustfmt --emit files --edition 2018 --verbose `find ./src -type f -name "*.rs"`
+
+.PHONY: clean
+clean:
+	rm -rf target/release
+
+.PHONY: build
+build: format check test target/release/noop-client
+
+target/release/noop-client:
+	cargo build --release --bin $(BIN)

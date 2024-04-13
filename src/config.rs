@@ -75,12 +75,12 @@ impl Config {
 
         if !self.has_file() {
             configs.push(self.clone());
-            return Ok(configs)
+            return Ok(configs);
         }
 
         let content = File::open(&self.script());
         if content.is_err() {
-            return error!(content)
+            return error!(content);
         }
 
         let lines = BufReader::new(content.unwrap()).lines();
@@ -104,8 +104,11 @@ impl Config {
                 // TODO: Consider skipping and warning, over erroring.
                 return error_str!(format!(
                     "Found {} of 4 expected fields in '{}' for file:'{}', entry:'{}'",
-                    n, line, &self.script(), idx
-                ))
+                    n,
+                    line,
+                    &self.script(),
+                    idx
+                ));
             }
 
             let mut parts = line.split('|').map(|p| p.to_string());
@@ -134,7 +137,10 @@ impl Config {
             if new.endpoint().is_empty() {
                 return error_str!(format!(
                     "Empty endpoint without a default in '{}' for file:'{}', entry:'{}'",
-                    line, &self.script(), idx))
+                    line,
+                    &self.script(),
+                    idx
+                ));
             }
 
             // Fetch for headers, or use default from 'new'
@@ -170,7 +176,7 @@ pub fn header_map_from_vec(headers: Vec<String>) -> HeaderMap {
     let mut map = HeaderMap::new();
 
     if headers.is_empty() {
-        return map
+        return map;
     }
 
     for header in &headers {
@@ -182,7 +188,7 @@ pub fn header_map_from_vec(headers: Vec<String>) -> HeaderMap {
         }
     }
 
-    return map
+    return map;
 }
 
 impl HeaderStringVec for Vec<String> {
@@ -211,11 +217,11 @@ impl HeaderStringSplit for String {
         if let Some((sname, svalue)) = self.split_once(':') {
             if let Ok(name) = HeaderName::try_from(sname) {
                 if let Ok(value) = HeaderValue::try_from(svalue) {
-                    return Some((name, value))
+                    return Some((name, value));
                 }
             }
         }
-        return None
+        return None;
     }
 }
 
@@ -240,7 +246,6 @@ mod tests {
         expected.insert(reqwest::header::CONTENT_TYPE, hval1);
         expected.insert("X-Foobar", hval2);
 
-
         let result = hvec.to_headers();
         assert_eq!(expected, result, "should create header map");
 
@@ -248,7 +253,6 @@ mod tests {
             "Content-Type;application/json".to_string(), // bad split
         ];
         assert!(badvec1.to_headers().is_empty());
-
 
         let badvec2 = vec![
             ":application/json".to_string(), // empty name
@@ -258,13 +262,9 @@ mod tests {
             "shouldn't allow empty name"
         );
 
-
         let badvec3 = vec![
             "content-type:".to_string(), // empty value
         ];
-        assert!(
-            !badvec3.to_headers().is_empty(),
-            "should allow empty value"
-        );
+        assert!(!badvec3.to_headers().is_empty(), "should allow empty value");
     }
 }

@@ -90,6 +90,15 @@ pub(crate) mod macros {
         };
     }
 
+    #[macro_export]
+    macro_rules! response_error_vector {
+        ($str:expr) => {{
+            let ret: Vec<Result<reqwest::Response, utils::Errors>> =
+                vec![Err(utils::Errors::Error($str))];
+            ret
+        }};
+    }
+
     mod test {
         #[test]
         fn is_verbose_test() {
@@ -118,14 +127,5 @@ pub(crate) mod macros {
             set_verbose!(false);
             assert!(!unsafe { crate::VERBOSE }, "should return false");
         }
-
-        // #[test]
-        // #[should_panic]
-        // #[allow(warnings)]
-        // fn eexit_test() {
-        //     let was = rust_backtrace!("0");
-        //     eexit!("foo");
-        //     rust_backtrace!(was);
-        // }
     }
 }

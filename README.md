@@ -1,11 +1,6 @@
 # noop-client
 > **This is my first attempt at working in [Rust](https://www.rust-lang.org/). Feedback
 > welcome through issues, or otherwise.**
->
-> ### WARNING (2024-04-12): This is very much not working as intended right now!!
-> Mainly, error handling isn't working as expected and causing a stack overflow.
-> I think it might be related to me over using macros for errors and perhaps
-> also how I'm spawning `tokio::spawn` in `main.rs`. But I'm still debugging.
 
 This is a (hopefully) simple method of sending http requests (kind of like curl). Either
 directly, or via a pipe delimited text file -- see [examples/test_requests.txt](examples/test_requests.txt).
