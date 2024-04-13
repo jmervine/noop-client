@@ -1,6 +1,8 @@
 # noop-client
 > **This is my first attempt at working in [Rust](https://www.rust-lang.org/). Feedback
 > welcome through issues, or otherwise.**
+>
+> ### WARNING (2024-04-12): This is very much not working as intended right now!!
 
 This is a (hopefully) simple method of sending http requests (kind of like curl). Either
 directly, or via a pipe delimited text file -- see [examples/test_requests.txt](examples/test_requests.txt).
