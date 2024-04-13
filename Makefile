@@ -1,10 +1,10 @@
 RUN := cargo run
 BIN := noop-client
 VERBOSE ?= false
-ARGS ?= --endpoint http://localhost:3000/default --headers "X-Test-1=makefile1" \
+ARGS ?= --endpoint http://localhost:3000/default --headers "X-Test-1:makefile1" \
 			--headers "X-Test-2=makefile2" -n 15 --verbose=$(VERBOSE)
 
-.PHONY: default $(RUN_TARGETS)
+.PHONY: default
 default: check test run_help run run_args run_script
 
 .PHONY: run_help
@@ -30,7 +30,7 @@ run_script:
 .PHONY: test
 test:
 	# cargo test
-	cargo test
+	cargo test --bin $(BIN)
 
 .PHONY: functional
 functional:
@@ -67,3 +67,8 @@ stop_async_listener:
 .PHONY: clean
 clean:
 	rm -rf target
+
+.PHONY: format
+format:
+	# format files
+	rustfmt --emit files --edition 2018 --verbose `find ./src -type f -name "*.rs"`

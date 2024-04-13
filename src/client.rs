@@ -1,17 +1,11 @@
-use std::str::FromStr;
 use reqwest::Client as RClient;
+use reqwest::{Method, Url};
 use reqwest::{Request, Response};
-use reqwest::{Url,Method};
+use std::str::FromStr;
 
 use crate::*;
 
-#[derive(Debug)]
-pub enum ClientError {
-    NewClientError(String),
-    ClientRequestError(String),
-}
-
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Client {
     client: RClient,
     iterations: usize,
@@ -20,69 +14,59 @@ pub struct Client {
     endpoint: Url,
 }
 
-macro_rules! chk_eclient {
-    ($e:expr, $v:expr) => {
-        if $e.is_err() {
-            return Err(ClientError::NewClientError(format!("{:} (for value: '{:}')", $e.unwrap_err().to_string(), $v)))
-        }
-    };
-}
-
 impl Client {
     // TODO: Refactor to take headers as Vec
-    pub fn new(method: &str, endpoint: &str, headers: Vec<String>, itr: usize) -> Result<Client, ClientError> {
+    pub fn new(method: &str, endpoint: &str, headers: Vec<String>, itr: usize) -> Result<Client, utils::Errors> {
         let mut builder = RClient::builder();
         if !headers.is_empty() {
-            let h = header_map_from_vec(headers);
-            chk_eclient!(h, "headers: Vec<String>");
-
-            builder = builder.default_headers(h.unwrap());
+            let header = header_map_from_vec(headers);
+            if header.is_empty() {
+                builder = builder.default_headers(header);
+            }
         }
 
         let e = Url::parse(endpoint);
-        chk_eclient!(e, endpoint);
+        if e.is_err() {
+            return error!(e)
+        }
 
         let m = Method::from_str(method);
-        chk_eclient!(m, method);
+        if m.is_err() {
+            return error!(m)
+        }
 
         let i = if itr == 0 { 1 } else { itr };
 
         let c = builder.build();
-        chk_eclient!(c, "builder.build()");
+        if c.is_err() {
+            return error!(c)
+        }
 
-        Ok(Client {
-            client: c.unwrap(),
-            method: m.unwrap(),
-            endpoint: e.unwrap(),
-            iterations: i
-        })
+        Ok(Client { client: c.unwrap(), method: m.unwrap(),
+                    endpoint: e.unwrap(), iterations: i })
     }
 
     fn request(&self) -> Request {
         Request::new(self.method.clone(), self.endpoint.clone())
     }
 
-    async fn exec(&self) -> Result<Response, ClientError> {
+    async fn exec(&self) -> Result<Response, utils::Errors> {
         let req = self.request();
         debug!(format!("{:?}", req));
-        let res: Response = match self.client.execute(req).await {
-            Ok(res) => res,
-            Err(e)  => return Err(ClientError::ClientRequestError(e.to_string()))
-        };
-        debug!(format!("{:?}", res));
+        let res = self.client.execute(req).await;
+        if res.is_err() {
+            return error_str!(res)
+        }
 
-        Ok(res)
+        Ok(res.unwrap())
     }
 
     // Return a vector of tuples with response and optional error
-    pub async fn run(&self) -> Vec<(Option<Response>, Option<ClientError>)> {
-        let mut results: Vec<(Option<Response>, Option<ClientError>)> = vec![];
+    pub async fn run(&self) -> Vec<Result<Response, utils::Errors>> {
+        let mut results: Vec<Result<Response, utils::Errors>> = vec![];
         for _ in 0..self.iterations {
             let result = self.exec().await;
-            match result {
-                Ok(res) => results.push((Some(res), None)),
-                Err(e)  => results.push((None, Some(e)))
-            };
+            results.push(result);
         }
 
         results
@@ -95,13 +79,18 @@ mod tests {
 
     #[test]
     fn new_test() {
-        let c = Client::new("GET", "http://localhost/", vec![], 0);
-        assert!(!c.is_err());
+        {
+            let c = Client::new("GET", "http://localhost/", vec![], 0);
+            assert!(!c.is_err());
+        }
 
-        let c1 = Client::new("", "http://localhost/", vec![], 0);
-        assert!(c1.is_err(), "invalid method");
-
-        let c2 = Client::new("GET", "bad_url", vec![], 0);
-        assert!(c2.is_err(), "invalid url");
+        {
+            let c = Client::new("", "http://localhost/", vec![], 0);
+            assert!(c.is_err())
+        }
+        {
+            let c = Client::new("GET", "bad_url", vec![], 0);
+            assert!(c.is_err());
+        }
     }
 }
