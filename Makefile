@@ -54,3 +54,7 @@ build: format check test target/release/noop-client
 
 target/release/noop-client:
 	cargo build --release --bin $(BIN)
+
+.PHONY: todos
+todos:
+	@git grep -n TODO | grep -v Makefile | awk -F':' '{ print " - TODO["$$1":"$$2"]:"$$NF }'
