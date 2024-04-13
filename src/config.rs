@@ -34,7 +34,7 @@ pub struct Config {
 
 impl Config {
     pub fn is_valid(&self) -> bool {
-        return self.endpoint().is_empty() && self.script().is_empty();
+        return !(self.endpoint().is_empty() && self.script().is_empty());
     }
 
     pub fn endpoint(&self) -> String {
@@ -91,6 +91,7 @@ impl Config {
             }
 
             let line = l.unwrap();
+
             if line.is_empty() || line.starts_with("#") {
                 continue;
             }

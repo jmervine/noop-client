@@ -55,7 +55,7 @@ impl Client {
         debug!(format!("{:?}", req));
         let res = self.client.execute(req).await;
         if res.is_err() {
-            return error_str!(res)
+            return error!(res)
         }
 
         Ok(res.unwrap())

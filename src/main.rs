@@ -90,6 +90,8 @@ async fn main() -> Result<(), utils::Errors> {
         };
     }
 
+    println!("  Requests sent: {:?}", breakdown.len());
+    println!("---------------------------");
     println!("        success: {:?}", count!(breakdown, "SUCCESS"));
     println!("        failure: {:?}", count!(breakdown, "FAILURE"));
     println!("         errors: {:?}", count!(breakdown, "ERROR"));
