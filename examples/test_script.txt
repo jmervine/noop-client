@@ -12,3 +12,4 @@
 
 # Force an error for testing
 1|GET|bad_endpoint|X-Error:true
+
