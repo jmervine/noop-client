@@ -1,0 +1,5 @@
+200000|GET|http://localhost:3000/request1|
+200000|POST|http://localhost:3000/request2|User-Agent:noop-client,X-Load:run2
+200000|DELETE|http://localhost:3000/request3|User-Agent:noop-client,X-Load:run3
+200000|GET|http://localhost:3000/request4|User-Agent:noop-client,X-Load:run4
+200000|GET|http://localhost:3000/request5|User-Agent:noop-client,X-Load:run4,X-Noopserverflags:echo

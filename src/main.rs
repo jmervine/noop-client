@@ -1,101 +1,102 @@
-extern crate clap;
-extern crate reqwest;
-
-mod config;
 mod client;
-
-use std::time::Instant;
-use clap::Parser;
-use std::sync::mpsc;
-use reqwest::Response;
-
-use config::*;
-use client::*;
+mod config;
 
 #[macro_use]
-mod macros;
+mod utils;
+
+use clap::Parser;
+use std::sync::mpsc;
+use std::time::Instant;
+
+use client::*;
+use config::*;
 
 // -----
 static mut VERBOSE: bool = false;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), utils::Errors> {
     let start_time = Instant::now();
 
-    // Create a channel for communication
-    // let (sender, recv) = mpsc::channel();
     let (sender, recv) = mpsc::channel();
 
     let config: Config = Config::parse();
-    some_bad_error!(config.validate());
+    if !config.is_valid() {
+        eprintln!(
+            "Error: Configuration is invalid, see '--help', in:\n{:#?}",
+            config
+        );
+        std::process::exit(1);
+    }
     set_verbose!(config.verbose());
 
-    // coroutine::scope( |scope| {
-    //     let send = sender.clone();
+    let configs = config.to_vector()?;
+    let expect: usize = configs.clone().into_iter().map(|c| c.iterations).sum();
 
-        let r_configs = config.to_vec();
-        echeck!(r_configs);
+    let mut results = vec![];
+    for c in configs {
+        let send = sender.clone();
+        tokio::spawn(async move {
+            let client = Client::new(&c.method, &c.endpoint(), c.headers, c.iterations);
+            if client.is_err() {
+                let _ = send.send(response_error_vector!(client.unwrap_err().to_string()));
+            } else {
+                let resp = client.unwrap().run().await;
+                let _ = send.send(resp);
+            }
+        });
+    }
 
-        let configs = r_configs.unwrap();
+    while results.len() < expect {
+        let mut sent = match recv.recv() {
+            Ok(sent) => sent,
+            Err(err) => response_error_vector!(err.to_string()),
+        };
 
-        let expect: usize = configs.clone().into_iter().map( |c| c.iterations).sum();
+        results.append(&mut sent);
+    }
 
-        let mut results: Vec<(Option<Response>, Option<ClientError>)> = vec![];
-        for c in configs {
-            let send = sender.clone();
-            tokio::spawn( async move {
-                let r_client = Client::new(&c.method, &c.endpoint(), c.headers, c.iterations);
-                echeck!(r_client);
+    // [0]total, [1]pass, [2]fail, [3]error
+    let mut count: (usize, usize, usize, usize) = (0, 0, 0, 0);
+    let mut pass: Vec<reqwest::Response> = vec![];
+    let mut fail: Vec<reqwest::Response> = vec![];
+    let mut error: Vec<utils::Errors> = vec![];
 
-                let client = r_client.unwrap();
-                let result = client.run().await;
+    for result in results.into_iter() {
+        count.0 += 1;
+        match result {
+            Ok(response) => {
+                let s = response.status();
+                let code = s.as_u16();
 
-                let sent = send.send(result);
-                echeck!(sent);
-            });
+                if code >= 200 && code < 300 {
+                    count.1 += 1;
+                    pass.push(response);
+                } else {
+                    count.2 += 1;
+                    fail.push(response);
+                }
+            }
+            Err(err) => {
+                count.3 += 1;
+
+                // Report errors on debug
+                debug!(format!("{:?}", err));
+                error.push(err);
+            }
         }
+    }
 
-        while results.len() < expect {
-            let r_result = recv.recv();
-            echeck!(r_result);
-            let mut result = r_result.unwrap();
+    println!("-------------------------");
+    println!("  Requests sent: {:?}", count.0);
+    println!("-------------------------");
+    println!("        success: {:?}", count.1);
+    println!("        failure: {:?}", count.2);
+    println!("         errors: {:?}", count.3);
+    println!("----------------------");
 
-            results.append(&mut result);
-        }
+    let duration = Instant::now() - start_time;
+    println!("Run took: {:?}", duration);
 
-        debug!(format!("{:?}", results));
-
-        let n_results = results.len();
-        println!("Received result: {:?}", n_results);
-
-        // TODO: Create a display mod with an enum for this.
-        let breakdown: Vec<_> = results.into_iter().map(|result| {
-          let o_response = result.0;
-          let o_error = result.1;
-
-          if !o_error.is_none() || o_response.is_none() {
-            return "ERROR"
-          }
-
-          let code = o_response.unwrap().status().as_u16();
-          if code >= 200 || code < 300 {
-            return "SUCCESS"
-          }
-          return "FAILURE"
-        }).collect();
-
-        // TODO: There has to be a better way...
-        macro_rules! count {
-            ($vec:expr, $on:expr) => {
-               $vec.clone().into_iter().filter(|s| s == &$on).collect::<Vec<_>>().len()
-            };
-        }
-
-        println!("        success: {:?}", count!(breakdown, "SUCCESS"));
-        println!("        failure: {:?}", count!(breakdown, "FAILURE"));
-        println!("         errors: {:?}", count!(breakdown, "ERROR"));
-
-        let duration = Instant::now() - start_time;
-        println!("Run took: {:?}", duration);
-    // });
+    Ok(())
 }

@@ -8,4 +8,7 @@
 1|GET|http://localhost:3000/request4|User-Agent:noop-client,X-Test:run4
 
 # Empty assumes defaults, see '--help', will error without 'endpoint' arg
-|||
+||http://localhost:3000/emptyOK|
+
+# Force an error for testing
+1|GET|bad_endpoint|X-Error:true
