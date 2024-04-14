@@ -23,10 +23,6 @@ pub struct Config {
     #[arg(long = "script", short = 's')]
     pub o_script: Option<String>,
 
-    // TODO: Implement
-    // #[arg(long, short, required = false, default_value = "")]
-    // pub output: String,
-
     // TODO: Make '--verbose' without a value work.
     #[arg(long = "verbose", short = 'v')]
     pub o_verbose: Option<bool>,
