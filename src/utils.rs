@@ -40,7 +40,7 @@ pub(crate) mod macros {
     #[macro_export]
     macro_rules! error_str {
         ($m:expr) => {{
-            Err(utils::Errors::Error(format!("{:}", $m)))
+            Err(utils::Errors::Error(format!("{:?}", $m)))
         }};
     }
 

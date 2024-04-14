@@ -1,3 +1,4 @@
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Client as RClient;
 use reqwest::{Method, Url};
 use reqwest::{Request, Response};
@@ -12,6 +13,7 @@ pub struct Client {
 
     method: Method,
     endpoint: Url,
+    headers: Vec<String>,
 }
 
 impl Client {
@@ -22,13 +24,7 @@ impl Client {
         headers: Vec<String>,
         itr: usize,
     ) -> Result<Client, utils::Errors> {
-        let mut builder = RClient::builder();
-        if !headers.is_empty() {
-            let header = header_map_from_vec(headers);
-            if header.is_empty() {
-                builder = builder.default_headers(header);
-            }
-        }
+        let builder = RClient::builder(); //.default_headers(map);
 
         let e = Url::parse(endpoint);
         if e.is_err() {
@@ -52,15 +48,20 @@ impl Client {
             method: m.unwrap(),
             endpoint: e.unwrap(),
             iterations: i,
+            headers: headers,
         })
     }
 
-    fn request(&self) -> Request {
-        Request::new(self.method.clone(), self.endpoint.clone())
-    }
-
     async fn exec(&self) -> Result<Response, utils::Errors> {
-        let req = self.request();
+        let mut req = Request::new(self.method.clone(), self.endpoint.clone());
+
+        let headers = req.headers_mut();
+        let mapped = self.headers.clone().header_map()?;
+
+        for (name, val) in mapped {
+            headers.insert(name.unwrap(), val);
+        }
+
         debug!(format!("{:?}", req));
         let res = self.client.execute(req).await;
         if res.is_err() {
@@ -85,24 +86,55 @@ impl Client {
     }
 }
 
+pub trait HeaderMapForClientRequest {
+    fn header_map(&self) -> Result<HeaderMap, utils::Errors>;
+}
+
+impl HeaderMapForClientRequest for Vec<String> {
+    fn header_map(&self) -> Result<HeaderMap, utils::Errors> {
+        let mut map = HeaderMap::new();
+
+        // Inject headers
+        for header in self {
+            let (name, value) = header.clone().to_header()?;
+
+            // Forgoing error checking here, because I validate in 'to_header()' already.
+            map.insert(
+                HeaderName::from_str(&name).unwrap(),
+                HeaderValue::from_str(&value).unwrap(),
+            );
+        }
+
+        Ok(map)
+    }
+}
+
 mod tests {
+    // For some reason this doesn't show as being used, even though it is.
     #[allow(unused_imports)]
     use super::*;
 
     #[test]
     fn new_test() {
-        {
-            let c = Client::new("GET", "http://localhost/", vec![], 0);
-            assert!(!c.is_err());
-        }
+        let good = Client::new("GET", "http://localhost/", vec![], 0);
+        let err1 = Client::new("", "http://localhost/", vec![], 0);
+        let err2 = Client::new("GET", "bad_url", vec![], 0);
 
-        {
-            let c = Client::new("", "http://localhost/", vec![], 0);
-            assert!(c.is_err())
-        }
-        {
-            let c = Client::new("GET", "bad_url", vec![], 0);
-            assert!(c.is_err());
-        }
+        assert!(good.is_ok());
+        assert!(err1.is_err());
+        assert!(err2.is_err());
+    }
+
+    #[test]
+    fn header_map_test() {
+        let good: Vec<String> = vec!["foo:bar".to_string()];
+        let fine: Vec<String> = vec!["foo:".to_string()];
+        let ugly: Vec<String> = vec![":bar".to_string()];
+        let none: Vec<String> = vec!["".to_string()];
+
+        assert!(good.header_map().is_ok());
+        assert!(fine.header_map().is_ok());
+        assert!(ugly.header_map().is_err());
+        assert!(none.header_map().is_err());
     }
 }

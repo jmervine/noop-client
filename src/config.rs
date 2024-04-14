@@ -2,9 +2,12 @@ use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 
 use clap::Parser;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
 use crate::*;
+
+static SPLIT_SCRIPT_CHAR: char = '|';
+static SPLIT_HEADER_CHAR: char = ';';
+static SPLIT_HEADER_VALUE_CHAR: char = ':';
 
 #[derive(Parser, Debug, Clone)]
 pub struct Config {
@@ -111,7 +114,7 @@ impl Config {
                 ));
             }
 
-            let mut parts = line.split('|').map(|p| p.to_string());
+            let mut parts = line.split(SPLIT_SCRIPT_CHAR).map(|p| p.to_string());
 
             // Fetch for iterations, or use default from 'new'
             if let Some(i) = parts.next() {
@@ -146,7 +149,7 @@ impl Config {
             // Fetch for headers, or use default from 'new'
             if let Some(h) = parts.next() {
                 if !h.is_empty() {
-                    new.headers = h.split(',').map(|s| s.to_string()).collect()
+                    new.headers = h.split(SPLIT_HEADER_CHAR).map(|s| s.to_string()).collect()
                 }
             }
 
@@ -162,109 +165,124 @@ impl Config {
     }
 }
 
-pub trait HeaderStringVec {
-    fn to_headers(self) -> HeaderMap;
-}
-
-impl HeaderStringVec for Config {
-    fn to_headers(self) -> HeaderMap {
-        return self.headers.to_headers();
-    }
-}
-
-pub fn header_map_from_vec(headers: Vec<String>) -> HeaderMap {
-    let mut map = HeaderMap::new();
-
-    if headers.is_empty() {
-        return map;
-    }
-
-    for header in &headers {
-        if !header.is_empty() {
-            if let Some((name, value)) = header.clone().to_header() {
-                // TODO: Maybe warn or error if it's a bad header, instead of just skipping it.
-                map.insert(name, value);
-            }
-        }
-    }
-
-    return map;
-}
-
-impl HeaderStringVec for Vec<String> {
-    fn to_headers(self) -> HeaderMap {
-        header_map_from_vec(self)
-    }
-}
-
-impl HeaderStringVec for String {
-    fn to_headers(self) -> HeaderMap {
-        let sheaders: Vec<String> = self
-            .split(',')
-            .map(|s| s.to_string())
-            .filter(|s| !s.is_empty())
-            .collect();
-        sheaders.to_headers()
-    }
-}
-
+// ---
+// I'm not totally sure this belongs in this package, but there is other splitting here
+// TODO: Consider storing headers as `Vec<(String, String>)>`
 pub trait HeaderStringSplit {
-    fn to_header(self) -> Option<(HeaderName, HeaderValue)>;
+    fn to_header(self) -> Result<(String, String), utils::Errors>;
 }
 
 impl HeaderStringSplit for String {
-    fn to_header(self) -> Option<(HeaderName, HeaderValue)> {
-        if let Some((sname, svalue)) = self.split_once(':') {
-            if let Ok(name) = HeaderName::try_from(sname) {
-                if let Ok(value) = HeaderValue::try_from(svalue) {
-                    return Some((name, value));
+    fn to_header(self) -> Result<(String, String), utils::Errors> {
+        match self.split_once(SPLIT_HEADER_VALUE_CHAR) {
+            Some((name, value)) => {
+                if name == "" {
+                    return error_str!(format!("Name cannot be empty in '{}'", self));
                 }
+                return Ok((name.to_string(), value.to_string()));
             }
+            None => return error_str!(format!("Invalid header in '{}'", self)),
         }
-        return None;
     }
 }
 
-// ------
-// TODO: Figure out how to move tests in to their own file.
-mod tests {
+mod test {
+    // For some reason this doesn't show as being used, even though it is.
     #[allow(unused_imports)]
     use super::*;
 
+    // For some reason this doesn't show as being used, even though it is.
+    #[allow(unused)]
+    fn config() -> Config {
+        Config {
+            o_endpoint: Some("http://www.example.com".to_string()),
+            method: "GET".to_string(),
+            headers: vec!["foo=bar".to_string()],
+            o_script: None,
+            o_verbose: None,
+            iterations: 1,
+        }
+    }
+
     #[test]
-    fn vec_to_header_test() {
-        // reused
-        let hval1 = HeaderValue::from_str("application/json").unwrap();
-        let hval2 = HeaderValue::from_str("testing").unwrap();
+    fn is_valid_test() {
+        let mut c = config();
+        assert!(c.is_valid());
 
-        // ok
-        let hvec = vec![
-            "Content-Type:application/json".to_string(), // standard
-            "X-Foobar:testing".to_string(),              // custom
-        ];
-        let mut expected = HeaderMap::new();
-        expected.insert(reqwest::header::CONTENT_TYPE, hval1);
-        expected.insert("X-Foobar", hval2);
+        c.o_endpoint = None;
+        assert!(!c.is_valid());
 
-        let result = hvec.to_headers();
-        assert_eq!(expected, result, "should create header map");
+        c.o_script = Some("file.txt".to_string());
+        assert!(c.is_valid());
+    }
 
-        let badvec1 = vec![
-            "Content-Type;application/json".to_string(), // bad split
-        ];
-        assert!(badvec1.to_headers().is_empty());
+    #[test]
+    fn endpoint_test() {
+        let mut c = config();
+        assert_eq!(c.endpoint(), "http://www.example.com".to_string());
 
-        let badvec2 = vec![
-            ":application/json".to_string(), // empty name
-        ];
-        assert!(
-            badvec2.to_headers().is_empty(),
-            "shouldn't allow empty name"
-        );
+        c.o_endpoint = None;
+        assert_eq!(c.endpoint(), "".to_string());
+    }
 
-        let badvec3 = vec![
-            "content-type:".to_string(), // empty value
-        ];
-        assert!(!badvec3.to_headers().is_empty(), "should allow empty value");
+    #[test]
+    fn script_test() {
+        let mut c = config();
+        assert_eq!(c.script(), "".to_string());
+
+        c.o_script = Some("file.txt".to_string());
+        assert_eq!(c.script(), "file.txt".to_string());
+    }
+
+    #[test]
+    fn has_file_test() {
+        let mut c = config();
+
+        assert!(!c.has_file()); // with none
+
+        c.o_script = Some("this_should_never_exist.ack".to_string());
+        assert!(!c.has_file()); // with invalid file
+
+        // Fragile - assume project root
+        c.o_script = Some("test/test_script.txt".to_string());
+        assert!(c.has_file()); // with valid file
+    }
+
+    #[test]
+    fn to_vector_test() {
+        let c = config();
+
+        // with no file
+        let v = c.to_vector();
+        assert!(!v.is_err());
+        assert_eq!(v.clone().unwrap().len(), 1);
+        assert_eq!(v.clone().unwrap()[0].method, "GET".to_string());
+
+        // TODO: Test Config#to_vector() with 'test/test_script.txt'
+    }
+
+    #[test]
+    fn verbose_test() {
+        let mut c = config();
+        assert!(!c.verbose());
+
+        c.o_verbose = Some(false);
+        assert!(!c.verbose());
+
+        c.o_verbose = Some(true);
+        assert!(c.verbose());
+    }
+
+    #[test]
+    fn to_header_from_string_test() {
+        let good = "foo:bar".to_string().to_header();
+        let fine = "foo:".to_string().to_header();
+        let ugly = ":bar".to_string().to_header();
+        let none = "".to_string().to_header();
+
+        assert!(good.is_ok());
+        assert!(fine.is_ok());
+        assert!(ugly.is_err());
+        assert!(none.is_err());
     }
 }
