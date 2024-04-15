@@ -11,8 +11,8 @@ pub struct Client {
     client: RClient,
     iterations: usize,
 
-    method: Method,
-    endpoint: Url,
+    pub method: Method,
+    pub endpoint: Url,
     headers: Vec<String>,
 }
 
