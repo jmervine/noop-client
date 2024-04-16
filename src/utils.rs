@@ -31,6 +31,8 @@ pub(crate) mod macros {
         }};
     }
 
+    // TODO: Macros 'error!' and 'error_str!' produce aweful output.
+    //       I need to revisit this, and perhaps remove them.
     #[macro_export]
     macro_rules! error {
         ($m:expr) => {{

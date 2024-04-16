@@ -112,12 +112,12 @@ impl Config {
 
             let mut new = self.clone();
 
-            // Find the number of '|' characters (+1) to ensure all fields are present.
+            // Find the number of '|' characters (+1) to to match the number of fields (to be clear)
             let n = line.chars().filter(|&c| c == '|').count() + 1;
             if n != 5 {
                 // TODO: Consider skipping and warning, over erroring.
                 return error_str!(format!(
-                    "Found {} of 4 expected fields in '{}' for file:'{}', entry:'{}'",
+                    "Found {} of 5 expected fields in '{}' for file:'{}', entry:'{}'",
                     n,
                     line,
                     &self.script(),
