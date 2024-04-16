@@ -58,3 +58,7 @@ target/release/noop-client:
 .PHONY: todos
 todos:
 	@git grep -n TODO | grep -v Makefile | awk -F':' '{ print " - TODO["$$1":"$$2"]:"$$NF }'
+
+.PHONY: docker
+docker:
+	docker build . -t jmervine/noop-client:latest

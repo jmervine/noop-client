@@ -14,6 +14,8 @@ pub struct Client {
     pub method: Method,
     pub endpoint: Url,
     headers: Vec<String>,
+
+    sleep: std::time::Duration,
 }
 
 impl Client {
@@ -23,6 +25,7 @@ impl Client {
         endpoint: &str,
         headers: Vec<String>,
         itr: usize,
+        sleep: std::time::Duration,
     ) -> Result<Client, utils::Errors> {
         let builder = RClient::builder(); //.default_headers(map);
 
@@ -49,6 +52,7 @@ impl Client {
             endpoint: e.unwrap(),
             iterations: i,
             headers: headers,
+            sleep: sleep,
         })
     }
 
@@ -56,13 +60,20 @@ impl Client {
         let mut req = Request::new(self.method.clone(), self.endpoint.clone());
 
         let headers = req.headers_mut();
-        let mapped = self.headers.clone().header_map()?;
 
-        for (name, val) in mapped {
-            headers.insert(name.unwrap(), val);
+        // Empty okay
+        if !self.headers.is_empty() {
+            let mapped = self.headers.clone().header_map()?;
+
+            for (name, val) in mapped {
+                headers.insert(name.unwrap(), val);
+            }
         }
 
         debug!(format!("{:?}", req));
+        if self.sleep > std::time::Duration::ZERO {
+            tokio::time::sleep(self.sleep).await;
+        }
         let res = self.client.execute(req).await;
         if res.is_err() {
             return error!(res);
@@ -94,15 +105,23 @@ impl HeaderMapForClientRequest for Vec<String> {
     fn header_map(&self) -> Result<HeaderMap, utils::Errors> {
         let mut map = HeaderMap::new();
 
-        // Inject headers
-        for header in self {
-            let (name, value) = header.clone().to_header()?;
-
-            // Forgoing error checking here, because I validate in 'to_header()' already.
-            map.insert(
-                HeaderName::from_str(&name).unwrap(),
-                HeaderValue::from_str(&value).unwrap(),
-            );
+        // Empty okay
+        if !self.is_empty() {
+            for header in self {
+                //let (name, value) = header.clone().to_header()?;
+                let header = header.clone().to_header();
+                match header {
+                    Ok((k, v)) => {
+                        // Forgoing additional error checking here, because I validate in 'to_header()' already.
+                        map.insert(
+                            HeaderName::from_str(&k).unwrap(),
+                            HeaderValue::from_str(&v).unwrap(),
+                        );
+                    }
+                    Err(utils::Errors::Ignorable) => {}
+                    Err(err) => return Err(err),
+                }
+            }
         }
 
         Ok(map)
@@ -116,9 +135,10 @@ mod tests {
 
     #[test]
     fn new_test() {
-        let good = Client::new("GET", "http://localhost/", vec![], 0);
-        let err1 = Client::new("", "http://localhost/", vec![], 0);
-        let err2 = Client::new("GET", "bad_url", vec![], 0);
+        let s = std::time::Duration::from_millis(0);
+        let good = Client::new("GET", "http://localhost/", vec![], 0, s);
+        let err1 = Client::new("", "http://localhost/", vec![], 0, s);
+        let err2 = Client::new("GET", "bad_url", vec![], 0, s);
 
         assert!(good.is_ok());
         assert!(err1.is_err());
@@ -135,6 +155,6 @@ mod tests {
         assert!(good.header_map().is_ok());
         assert!(fine.header_map().is_ok());
         assert!(ugly.header_map().is_err());
-        assert!(none.header_map().is_err());
+        assert!(none.header_map().is_ok());
     }
 }

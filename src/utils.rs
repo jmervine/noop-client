@@ -3,6 +3,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Errors {
     Error(String),
+    Ignorable,
     // Fatal(T),
     //Warn(String),
 }
@@ -12,7 +13,7 @@ impl std::fmt::Display for Errors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Errors::Error(inner) => write!(f, "Error[{}:{}] {}", file!(), line!(), inner),
-            // Errors::Fatal(inner) => write!(f, "Fatal[{}:{}] {}", file!(), line!(), inner),
+            Errors::Ignorable => write!(f, "Ignorable error."),
             // Add formatting for other error variants as needed
         }
     }
