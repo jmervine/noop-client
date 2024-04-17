@@ -94,14 +94,14 @@ impl Config {
 
         let content = File::open(&self.script());
         if content.is_err() {
-            return error!(content);
+            return Err(err_from_result!(content));
         }
 
         let lines = BufReader::new(content.unwrap()).lines();
 
         for (idx, l) in lines.enumerate() {
             if l.is_err() {
-                return error!(l);
+                return Err(err_from_result!(l));
             }
 
             let line = l.unwrap();
@@ -116,13 +116,14 @@ impl Config {
             let n = line.chars().filter(|&c| c == '|').count() + 1;
             if n != 5 {
                 // TODO: Consider skipping and warning, over erroring.
-                return error_str!(format!(
+                let emsg = format!(
                     "Found {} of 5 expected fields in '{}' for file:'{}', entry:'{}'",
                     n,
                     line,
                     &self.script(),
                     idx
-                ));
+                );
+                return Err(err_from_string!(emsg));
             }
 
             let mut parts = line.split(SPLIT_SCRIPT_CHAR).map(|p| p.to_string());
@@ -149,12 +150,13 @@ impl Config {
             }
 
             if new.endpoint().is_empty() {
-                return error_str!(format!(
+                let emsg = format!(
                     "Empty endpoint without a default in '{}' for file:'{}', entry:'{}'",
                     line,
                     &self.script(),
                     idx
-                ));
+                );
+                return Err(err_from_string!(emsg));
             }
 
             // Fetch for headers, or use default from 'new'
@@ -168,13 +170,8 @@ impl Config {
                 if !s.is_empty() {
                     let sm = s.parse::<u64>();
                     if sm.is_err() {
-                        return error_str!(format!(
-                            "Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'",
-                            s,
-                            line,
-                            &self.script(),
-                            idx
-                        ));
+                        let emsg = format!("Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'", s, line, &self.script(), idx);
+                        return Err(err_from_string!(emsg));
                     }
 
                     new.o_sleep = Some(sm.unwrap());
@@ -183,7 +180,9 @@ impl Config {
 
             // panic if not valid
             if !new.is_valid() {
-                return error_str!("Invalid configurations, see help for details.");
+                return Err(err_from_string!(
+                    "Invalid configurations, see help for details.".to_string()
+                ));
             }
 
             configs.push(new);
@@ -205,7 +204,10 @@ impl HeaderStringSplit for String {
         match self.split_once(SPLIT_HEADER_VALUE_CHAR) {
             Some((name, value)) => {
                 if name == "" {
-                    return error_str!(format!("Name cannot be empty in '{}'", self));
+                    return Err(err_from_string!(format!(
+                        "Name cannot be empty in '{}'",
+                        self
+                    )));
                 }
                 return Ok((name.to_string(), value.to_string()));
             }

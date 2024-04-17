@@ -68,10 +68,11 @@ async fn main() -> Result<(), utils::Errors> {
 
             if client.is_err() {
                 eprintln!(
-                    "{:?}",
-                    response_error_vector!(client.unwrap_err().to_string())
+                    "Warning: skipping '{:?}', due to '{:?}'",
+                    c,
+                    client.unwrap_err()
                 );
-                let _ = send.send((expect, 0, 0, 0)); // for exit / done
+                let _ = send.send((1, 0, 0, 1)); // continue
             } else {
                 let c = client.unwrap();
                 let resp = c.run().await;

@@ -31,19 +31,22 @@ impl Client {
 
         let e = Url::parse(endpoint);
         if e.is_err() {
-            return error!(e);
+            let emsg = format!("Error parsing '{}', err: {:?}", endpoint, e);
+            return Err(err_from_string!(emsg));
         }
 
         let m = Method::from_str(method);
         if m.is_err() {
-            return error!(m);
+            let emsg = format!("Error parsing '{}', err: {:?}", method, e);
+            return Err(err_from_string!(emsg));
         }
 
         let i = if itr == 0 { 1 } else { itr };
 
         let c = builder.build();
         if c.is_err() {
-            return error!(c);
+            let emsg = format!("Error building '{:?}', err: {:?}", method, c);
+            return Err(err_from_string!(emsg));
         }
 
         Ok(Client {
@@ -76,7 +79,7 @@ impl Client {
         }
         let res = self.client.execute(req).await;
         if res.is_err() {
-            return error!(res);
+            return Err(err_from_result!(res));
         }
 
         let r = res.unwrap();
