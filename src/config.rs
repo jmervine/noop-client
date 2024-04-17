@@ -8,7 +8,7 @@ use crate::*;
 static SPLIT_SCRIPT_CHAR: char = '|';
 static SPLIT_HEADER_CHAR: char = ';';
 
-// TODO: Split header kv string on '=' in addition to ':'
+// TODO: Split header kv string on '=' also
 static SPLIT_HEADER_VALUE_CHAR: char = ':';
 
 #[derive(Parser, Debug, Clone)]

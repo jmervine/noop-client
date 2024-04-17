@@ -12,7 +12,6 @@ pub enum Errors {
 impl std::fmt::Display for Errors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            //Errors::Error(inner) => write!(f, "Error[{}:{}] {}", file!(), line!(), inner),
             Errors::Error(inner) => write!(f, "{}", inner),
             Errors::Ignorable => write!(f, "Ignorable error."),
             // Add formatting for other error variants as needed
