@@ -6,8 +6,7 @@ mod utils;
 
 use clap::Parser;
 
-use core::time;
-use signal_hook as signals;
+//use signal_hook as signals;
 use std::sync::mpsc;
 use std::time::Instant;
 
@@ -41,21 +40,21 @@ async fn main() -> Result<(), utils::Errors> {
     let configs = config.to_vector()?;
     let expect: usize = configs.clone().into_iter().map(|c| c.iterations).sum();
 
-    let mut sigs =
-        signals::iterator::Signals::new(&[signals::consts::SIGINT, signals::consts::SIGHUP])
-            .expect("Error setting up signal handler.");
+    // TODO: Signal handlers aren't sending values when catching SIGINT, commenting it out for now.
+    // let mut sigs =
+    //     signals::iterator::Signals::new(&[signals::consts::SIGINT, signals::consts::SIGHUP])
+    //         .expect("Error setting up signal handler.");
 
-    std::thread::spawn(move || {
-        for sig in sigs.forever() {
-            println!("Received signal {:?}", sig);
-
-            print_results(t, s, f, e, start_time);
-            if sig == signals::consts::SIGINT {
-                std::thread::sleep(time::Duration::from_secs(1));
-                std::process::abort();
-            }
-        }
-    });
+    // let sig_send = sender.clone();
+    // std::thread::spawn(move || {
+    //     for sig in sigs.forever() {
+    //         if sig == signals::consts::SIGINT {
+    //             println!("Received signal {:?}", sig);
+    //             let _ = sig_send.send((expect, 0, 0, 0));
+    //             break;
+    //         }
+    //     }
+    // });
 
     for c in configs {
         let send = sender.clone();
