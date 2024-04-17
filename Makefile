@@ -28,7 +28,7 @@ run_script:
 		--endpoint=http://localhost:3000/default --verbose=$(VERBOSE)
 
 run_load: build
-	./target/release/noop-client -s ./examples/load_script.txt
+	./target/release/noop-client -f ./examples/load_script.txt
 
 .PHONY: test
 test:
@@ -58,3 +58,7 @@ target/release/noop-client:
 .PHONY: todos
 todos:
 	@git grep -n TODO | grep -v Makefile | awk -F':' '{ print " - TODO["$$1":"$$2"]:"$$NF }'
+
+.PHONY: docker
+docker:
+	docker build . -t jmervine/noop-client:latest

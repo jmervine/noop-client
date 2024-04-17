@@ -7,6 +7,8 @@ use crate::*;
 
 static SPLIT_SCRIPT_CHAR: char = '|';
 static SPLIT_HEADER_CHAR: char = ';';
+
+// TODO: Split header kv string on '=' in addition to ':'
 static SPLIT_HEADER_VALUE_CHAR: char = ':';
 
 #[derive(Parser, Debug, Clone)]
@@ -20,8 +22,11 @@ pub struct Config {
     #[arg(long, short = 'x', default_value = "")]
     pub headers: Vec<String>,
 
-    #[arg(long = "script", short = 's')]
+    #[arg(long = "script", short = 'f')]
     pub o_script: Option<String>,
+
+    #[arg(long = "sleep", short = 's')]
+    pub o_sleep: Option<u64>,
 
     // TODO: Make '--verbose' without a value work.
     #[arg(long = "verbose", short = 'v')]
@@ -48,6 +53,16 @@ impl Config {
             Some(script) => script.clone(),
             _ => String::new(),
         }
+    }
+
+    pub fn sleep(&self) -> std::time::Duration {
+        let s = match &self.o_sleep {
+            Some(s) => s.clone(),
+            _ => return std::time::Duration::ZERO,
+        };
+
+        let t = std::time::Duration::from_millis(s);
+        return t;
     }
 
     pub fn verbose(&self) -> bool {
@@ -79,14 +94,14 @@ impl Config {
 
         let content = File::open(&self.script());
         if content.is_err() {
-            return error!(content);
+            return Err(err_from_result!(content));
         }
 
         let lines = BufReader::new(content.unwrap()).lines();
 
         for (idx, l) in lines.enumerate() {
             if l.is_err() {
-                return error!(l);
+                return Err(err_from_result!(l));
             }
 
             let line = l.unwrap();
@@ -97,17 +112,18 @@ impl Config {
 
             let mut new = self.clone();
 
-            // Find the number of '|' characters (+1) to ensure all fields are present.
+            // Find the number of '|' characters (+1) to to match the number of fields (to be clear)
             let n = line.chars().filter(|&c| c == '|').count() + 1;
-            if n != 4 {
+            if n != 5 {
                 // TODO: Consider skipping and warning, over erroring.
-                return error_str!(format!(
-                    "Found {} of 4 expected fields in '{}' for file:'{}', entry:'{}'",
+                let emsg = format!(
+                    "Found {} of 5 expected fields in '{}' for file:'{}', entry:'{}'",
                     n,
                     line,
                     &self.script(),
                     idx
-                ));
+                );
+                return Err(err_from_string!(emsg));
             }
 
             let mut parts = line.split(SPLIT_SCRIPT_CHAR).map(|p| p.to_string());
@@ -134,12 +150,13 @@ impl Config {
             }
 
             if new.endpoint().is_empty() {
-                return error_str!(format!(
+                let emsg = format!(
                     "Empty endpoint without a default in '{}' for file:'{}', entry:'{}'",
                     line,
                     &self.script(),
                     idx
-                ));
+                );
+                return Err(err_from_string!(emsg));
             }
 
             // Fetch for headers, or use default from 'new'
@@ -149,9 +166,23 @@ impl Config {
                 }
             }
 
+            if let Some(s) = parts.next() {
+                if !s.is_empty() {
+                    let sm = s.parse::<u64>();
+                    if sm.is_err() {
+                        let emsg = format!("Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'", s, line, &self.script(), idx);
+                        return Err(err_from_string!(emsg));
+                    }
+
+                    new.o_sleep = Some(sm.unwrap());
+                }
+            }
+
             // panic if not valid
             if !new.is_valid() {
-                return error_str!("Invalid configurations, see help for details.");
+                return Err(err_from_string!(
+                    "Invalid configurations, see help for details.".to_string()
+                ));
             }
 
             configs.push(new);
@@ -173,11 +204,14 @@ impl HeaderStringSplit for String {
         match self.split_once(SPLIT_HEADER_VALUE_CHAR) {
             Some((name, value)) => {
                 if name == "" {
-                    return error_str!(format!("Name cannot be empty in '{}'", self));
+                    return Err(err_from_string!(format!(
+                        "Name cannot be empty in '{}'",
+                        self
+                    )));
                 }
                 return Ok((name.to_string(), value.to_string()));
             }
-            None => return error_str!(format!("Invalid header in '{}'", self)),
+            None => return Err(utils::Errors::Ignorable),
         }
     }
 }
@@ -195,6 +229,7 @@ mod test {
             method: "GET".to_string(),
             headers: vec!["foo=bar".to_string()],
             o_script: None,
+            o_sleep: None,
             o_verbose: None,
             iterations: 1,
         }

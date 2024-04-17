@@ -5,6 +5,8 @@ mod config;
 mod utils;
 
 use clap::Parser;
+
+//use signal_hook as signals;
 use std::sync::mpsc;
 use std::time::Instant;
 
@@ -17,6 +19,11 @@ static mut VERBOSE: bool = false;
 #[tokio::main]
 async fn main() -> Result<(), utils::Errors> {
     let start_time = Instant::now();
+
+    let mut t: usize = 0;
+    let mut s: usize = 0;
+    let mut f: usize = 0;
+    let mut e: usize = 0;
 
     let (sender, recv) = mpsc::channel();
 
@@ -33,70 +40,100 @@ async fn main() -> Result<(), utils::Errors> {
     let configs = config.to_vector()?;
     let expect: usize = configs.clone().into_iter().map(|c| c.iterations).sum();
 
-    let mut results = vec![];
+    // TODO: Signal handlers aren't sending values when catching SIGINT, commenting it out for now.
+    // let mut sigs =
+    //     signals::iterator::Signals::new(&[signals::consts::SIGINT, signals::consts::SIGHUP])
+    //         .expect("Error setting up signal handler.");
+
+    // let sig_send = sender.clone();
+    // std::thread::spawn(move || {
+    //     for sig in sigs.forever() {
+    //         if sig == signals::consts::SIGINT {
+    //             println!("Received signal {:?}", sig);
+    //             let _ = sig_send.send((expect, 0, 0, 0));
+    //             break;
+    //         }
+    //     }
+    // });
+
     for c in configs {
         let send = sender.clone();
         tokio::spawn(async move {
-            let client = Client::new(&c.method, &c.endpoint(), c.headers, c.iterations);
+            let h = c.clone().headers;
+            let client = Client::new(&c.method, &c.endpoint(), h, c.iterations, c.sleep());
+
+            // ( t, s, f, e )
+            let mut re: (usize, usize, usize, usize) = (0, 0, 0, 0);
+
             if client.is_err() {
-                let _ = send.send(response_error_vector!(client.unwrap_err().to_string()));
+                eprintln!(
+                    "Warning: skipping '{:?}', due to '{:?}'",
+                    c,
+                    client.unwrap_err()
+                );
+                let _ = send.send((1, 0, 0, 1)); // continue
             } else {
-                let resp = client.unwrap().run().await;
-                let _ = send.send(resp);
+                let c = client.unwrap();
+                let resp = c.run().await;
+
+                for r in resp {
+                    match r {
+                        Ok(r) => {
+                            let code = r.status().as_u16();
+                            debug!(format!(
+                                "code={:} method={} path={:}",
+                                code, c.method, c.endpoint,
+                            ));
+                            if code >= 200 && code < 300 {
+                                re.1 += 1;
+                            } else {
+                                re.2 += 1;
+                            }
+                        }
+                        Err(err) => {
+                            debug!(format!(
+                                "method={} path={:} error='{:?}'",
+                                c.method, c.endpoint, err
+                            ));
+                            re.3 += 1;
+                        }
+                    }
+                    re.0 += 1;
+                }
+
+                let _ = send.send(re);
             }
         });
     }
 
-    while results.len() < expect {
-        let mut sent = match recv.recv() {
-            Ok(sent) => sent,
-            Err(err) => response_error_vector!(err.to_string()),
-        };
-
-        results.append(&mut sent);
-    }
-
-    // [0]total, [1]pass, [2]fail, [3]error
-    let mut count: (usize, usize, usize, usize) = (0, 0, 0, 0);
-    let mut pass: Vec<reqwest::Response> = vec![];
-    let mut fail: Vec<reqwest::Response> = vec![];
-    let mut error: Vec<utils::Errors> = vec![];
-
-    for result in results.into_iter() {
-        count.0 += 1;
-        match result {
-            Ok(response) => {
-                let s = response.status();
-                let code = s.as_u16();
-
-                if code >= 200 && code < 300 {
-                    count.1 += 1;
-                    pass.push(response);
-                } else {
-                    count.2 += 1;
-                    fail.push(response);
-                }
+    while t < expect {
+        match recv.recv() {
+            Ok(re) => {
+                t += re.0;
+                s += re.1;
+                f += re.2;
+                e += re.3;
             }
-            Err(err) => {
-                count.3 += 1;
-
-                // Report errors on debug
-                debug!(format!("{:?}", err));
-                error.push(err);
+            Err(_) => {
+                // force exit
+                t = expect;
             }
         }
     }
 
-    println!("-------------------------");
-    println!("  Requests sent: {:?}", count.0);
-    println!("-------------------------");
-    println!("        success: {:?}", count.1);
-    println!("        failure: {:?}", count.2);
-    println!("         errors: {:?}", count.3);
-    println!("----------------------");
-
-    let duration = Instant::now() - start_time;
-    println!("Run took: {:?}", duration);
+    print_results(t, s, f, e, start_time);
 
     Ok(())
+}
+
+fn print_results(t: usize, s: usize, f: usize, e: usize, start_time: Instant) {
+    println!("-------------------------");
+    println!("  Requests sent: {:?}", t);
+    println!("-------------------------");
+    println!("        success: {:?}", s);
+    println!("        failure: {:?}", f);
+    println!("         errors: {:?}", e);
+    println!("----------------------");
+    let duration = Instant::now() - start_time;
+    println!("Run took: {:?}", duration);
 }
