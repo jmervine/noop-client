@@ -1,6 +1,6 @@
 # Comments (with '#' as the first char) and empty lines are ignored.
 # Format is '{iterations:-1}|{method:-GET}|{endpoint}|{headers:-}|{sleep:-0}
-6|GET|http://localhost:3000/request1|User-Agent:noop-client;X-Test:run1|10
+6|GET|http://localhost:3000/request1|User-Agent:noop-client;X-Test:run1|100
 
 # Support all valid methods
 1|POST|http://localhost:3000/request2|User-Agent:noop-client;X-Test:run2|10

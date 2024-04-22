@@ -11,73 +11,59 @@ static SPLIT_HEADER_CHAR: char = ';';
 // TODO: Split header kv string on '=' also
 static SPLIT_HEADER_VALUE_CHAR: char = ':';
 
+/// This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
 #[derive(Parser, Debug, Clone)]
+#[command(version, about, long_about = None)]
 pub struct Config {
-    #[arg(long = "endpoint", short = 'e')]
-    pub o_endpoint: Option<String>, // REQUIRED
-    // TODO: This shouldn't be required when 'input' is passed.
+    /// File path containing a list of options to be used, in place of other arguments
+    #[arg(long = "script", short = 'f', default_value = "")]
+    pub script: String,
+
+    /// Target endpoint to make an http requests against
+    #[arg(long = "endpoint", short = 'e', default_value = "")]
+    pub endpoint: String,
+
+    /// Method to be used when making an http requests
     #[arg(long, short, default_value = "GET")]
     pub method: String,
 
+    /// Headers to be used when making an http requests
     #[arg(long, short = 'x', default_value = "")]
     pub headers: Vec<String>,
 
-    #[arg(long = "script", short = 'f')]
-    pub o_script: Option<String>,
-
-    #[arg(long = "sleep", short = 's')]
-    pub o_sleep: Option<u64>,
-
-    // TODO: Make '--verbose' without a value work.
-    #[arg(long = "verbose", short = 'v')]
-    pub o_verbose: Option<bool>,
-
+    /// Number of requests to make for each endpoint
     #[arg(long, short = 'n', default_value_t = 1)]
     pub iterations: usize,
+
+    /// Built in sleep duration (in milliseconds) to be used when making multiple requests
+    #[arg(long = "sleep", short = 's', default_value = "0")]
+    pub sleep: u64,
+
+    /// Enable verbose output
+    #[arg(
+        long = "verbose",
+        short = 'v',
+        default_value = "false",
+        default_missing_value = "true"
+    )]
+    pub verbose: bool,
 }
 
 impl Config {
     pub fn is_valid(&self) -> bool {
-        return !(self.endpoint().is_empty() && self.script().is_empty());
-    }
-
-    pub fn endpoint(&self) -> String {
-        match &self.o_endpoint {
-            Some(endpoint) => endpoint.clone(),
-            _ => String::new(),
-        }
-    }
-
-    pub fn script(&self) -> String {
-        match &self.o_script {
-            Some(script) => script.clone(),
-            _ => String::new(),
-        }
+        return !(self.endpoint.is_empty() && self.script.is_empty());
     }
 
     pub fn sleep(&self) -> std::time::Duration {
-        let s = match &self.o_sleep {
-            Some(s) => s.clone(),
-            _ => return std::time::Duration::ZERO,
-        };
-
-        let t = std::time::Duration::from_millis(s);
-        return t;
-    }
-
-    pub fn verbose(&self) -> bool {
-        match self.o_verbose {
-            Some(verbose) => verbose,
-            _ => false,
-        }
+        return std::time::Duration::from_millis(self.sleep);
     }
 
     fn has_file(&self) -> bool {
-        if self.script().is_empty() {
+        if self.script.is_empty() {
             return false;
         }
 
-        if fs::metadata(self.script().clone()).is_err() {
+        if fs::metadata(self.script.clone()).is_err() {
             return false;
         }
 
@@ -92,7 +78,7 @@ impl Config {
             return Ok(configs);
         }
 
-        let content = File::open(&self.script());
+        let content = File::open(self.script.clone());
         if content.is_err() {
             return Err(err_from_result!(content));
         }
@@ -118,10 +104,7 @@ impl Config {
                 // TODO: Consider skipping and warning, over erroring.
                 let emsg = format!(
                     "Found {} of 5 expected fields in '{}' for file:'{}', entry:'{}'",
-                    n,
-                    line,
-                    &self.script(),
-                    idx
+                    n, line, self.script, idx
                 );
                 return Err(err_from_string!(emsg));
             }
@@ -145,16 +128,14 @@ impl Config {
 
             if let Some(e) = parts.next() {
                 if !e.is_empty() {
-                    new.o_endpoint = Some(e);
+                    new.endpoint = e;
                 }
             }
 
-            if new.endpoint().is_empty() {
+            if new.endpoint.is_empty() {
                 let emsg = format!(
                     "Empty endpoint without a default in '{}' for file:'{}', entry:'{}'",
-                    line,
-                    &self.script(),
-                    idx
+                    line, self.script, idx
                 );
                 return Err(err_from_string!(emsg));
             }
@@ -166,15 +147,22 @@ impl Config {
                 }
             }
 
-            if let Some(s) = parts.next() {
-                if !s.is_empty() {
-                    let sm = s.parse::<u64>();
-                    if sm.is_err() {
-                        let emsg = format!("Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'", s, line, &self.script(), idx);
-                        return Err(err_from_string!(emsg));
+            if let Some(sleep) = parts.next() {
+                if !sleep.is_empty() {
+                    match sleep.parse::<u64>() {
+                        Ok(sleep) => {
+                            new.sleep = sleep;
+                        }
+                        Err(_) => {
+                            return Err(err_from_string!(format!(
+                                "Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'",
+                                sleep,
+                                line,
+                                self.script,
+                                idx
+                            )));
+                        }
                     }
-
-                    new.o_sleep = Some(sm.unwrap());
                 }
             }
 
@@ -225,12 +213,12 @@ mod test {
     #[allow(unused)]
     fn config() -> Config {
         Config {
-            o_endpoint: Some("http://www.example.com".to_string()),
+            endpoint: "http://www.example.com".to_string(),
             method: "GET".to_string(),
             headers: vec!["foo=bar".to_string()],
-            o_script: None,
-            o_sleep: None,
-            o_verbose: None,
+            script: "".to_string(),
+            sleep: 0,
+            verbose: false,
             iterations: 1,
         }
     }
@@ -240,29 +228,29 @@ mod test {
         let mut c = config();
         assert!(c.is_valid());
 
-        c.o_endpoint = None;
+        c.endpoint = String::new();
         assert!(!c.is_valid());
 
-        c.o_script = Some("file.txt".to_string());
+        c.script = "file.txt".to_string();
         assert!(c.is_valid());
     }
 
     #[test]
     fn endpoint_test() {
         let mut c = config();
-        assert_eq!(c.endpoint(), "http://www.example.com".to_string());
+        assert_eq!(c.endpoint, "http://www.example.com".to_string());
 
-        c.o_endpoint = None;
-        assert_eq!(c.endpoint(), "".to_string());
+        c.endpoint = String::new();
+        assert_eq!(c.endpoint, "".to_string());
     }
 
     #[test]
     fn script_test() {
         let mut c = config();
-        assert_eq!(c.script(), "".to_string());
+        assert_eq!(c.script, "".to_string());
 
-        c.o_script = Some("file.txt".to_string());
-        assert_eq!(c.script(), "file.txt".to_string());
+        c.script = "file.txt".to_string();
+        assert_eq!(c.script, "file.txt".to_string());
     }
 
     #[test]
@@ -271,11 +259,11 @@ mod test {
 
         assert!(!c.has_file()); // with none
 
-        c.o_script = Some("this_should_never_exist.ack".to_string());
+        c.script = "this_should_never_exist.ack".to_string();
         assert!(!c.has_file()); // with invalid file
 
         // Fragile - assume project root
-        c.o_script = Some("test/test_script.txt".to_string());
+        c.script = "test/test_script.txt".to_string();
         assert!(c.has_file()); // with valid file
     }
 
@@ -295,13 +283,13 @@ mod test {
     #[test]
     fn verbose_test() {
         let mut c = config();
-        assert!(!c.verbose());
+        assert!(!c.verbose);
 
-        c.o_verbose = Some(false);
-        assert!(!c.verbose());
+        c.verbose = false;
+        assert!(!c.verbose);
 
-        c.o_verbose = Some(true);
-        assert!(c.verbose());
+        c.verbose = true;
+        assert!(c.verbose);
     }
 
     #[test]

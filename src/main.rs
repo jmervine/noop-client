@@ -35,7 +35,7 @@ async fn main() -> Result<(), utils::Errors> {
         );
         std::process::exit(1);
     }
-    set_verbose!(config.verbose());
+    set_verbose!(config.verbose);
 
     let configs = config.to_vector()?;
     let expect: usize = configs.clone().into_iter().map(|c| c.iterations).sum();
@@ -60,7 +60,7 @@ async fn main() -> Result<(), utils::Errors> {
         let send = sender.clone();
         tokio::spawn(async move {
             let h = c.clone().headers;
-            let client = Client::new(&c.method, &c.endpoint(), h, c.iterations, c.sleep());
+            let client = Client::new(&c.method, &c.endpoint, h, c.iterations, c.sleep());
 
             // ( t, s, f, e )
             let mut re: (usize, usize, usize, usize) = (0, 0, 0, 0);
