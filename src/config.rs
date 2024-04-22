@@ -39,10 +39,14 @@ pub struct Config {
     #[arg(long = "sleep", short = 's', default_value = "0")]
     pub sleep: u64,
 
-    // TODO: Make '--verbose' without a value work.
     /// Enable verbose output
-    #[arg(long = "verbose", short = 'v')]
-    pub o_verbose: Option<bool>,
+    #[arg(
+        long = "verbose",
+        short = 'v',
+        default_value = "false",
+        default_missing_value = "true"
+    )]
+    pub verbose: bool,
 }
 
 impl Config {
@@ -52,13 +56,6 @@ impl Config {
 
     pub fn sleep(&self) -> std::time::Duration {
         return std::time::Duration::from_millis(self.sleep);
-    }
-
-    pub fn verbose(&self) -> bool {
-        match self.o_verbose {
-            Some(verbose) => verbose,
-            _ => false,
-        }
     }
 
     fn has_file(&self) -> bool {
@@ -221,7 +218,7 @@ mod test {
             headers: vec!["foo=bar".to_string()],
             script: "".to_string(),
             sleep: 0,
-            o_verbose: None,
+            verbose: false,
             iterations: 1,
         }
     }
@@ -286,13 +283,13 @@ mod test {
     #[test]
     fn verbose_test() {
         let mut c = config();
-        assert!(!c.verbose());
+        assert!(!c.verbose);
 
-        c.o_verbose = Some(false);
-        assert!(!c.verbose());
+        c.verbose = false;
+        assert!(!c.verbose);
 
-        c.o_verbose = Some(true);
-        assert!(c.verbose());
+        c.verbose = true;
+        assert!(c.verbose);
     }
 
     #[test]

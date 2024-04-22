@@ -35,7 +35,7 @@ async fn main() -> Result<(), utils::Errors> {
         );
         std::process::exit(1);
     }
-    set_verbose!(config.verbose());
+    set_verbose!(config.verbose);
 
     let configs = config.to_vector()?;
     let expect: usize = configs.clone().into_iter().map(|c| c.iterations).sum();
