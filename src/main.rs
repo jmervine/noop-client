@@ -60,7 +60,7 @@ async fn main() -> Result<(), utils::Errors> {
         let send = sender.clone();
         tokio::spawn(async move {
             let h = c.clone().headers;
-            let client = Client::new(&c.method, &c.endpoint(), h, c.iterations, c.sleep());
+            let client = Client::new(&c.method, &c.endpoint, h, c.iterations, c.sleep());
 
             // ( t, s, f, e )
             let mut re: (usize, usize, usize, usize) = (0, 0, 0, 0);

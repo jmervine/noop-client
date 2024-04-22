@@ -20,8 +20,8 @@ pub struct Config {
     pub script: String,
 
     /// Target endpoint to make an http requests against
-    #[arg(long = "endpoint", short = 'e')]
-    pub o_endpoint: Option<String>, // REQUIRED
+    #[arg(long = "endpoint", short = 'e', default_value = "")]
+    pub endpoint: String,
 
     /// Method to be used when making an http requests
     #[arg(long, short, default_value = "GET")]
@@ -47,14 +47,7 @@ pub struct Config {
 
 impl Config {
     pub fn is_valid(&self) -> bool {
-        return !(self.endpoint().is_empty() && self.script.is_empty());
-    }
-
-    pub fn endpoint(&self) -> String {
-        match &self.o_endpoint {
-            Some(endpoint) => endpoint.clone(),
-            _ => String::new(),
-        }
+        return !(self.endpoint.is_empty() && self.script.is_empty());
     }
 
     pub fn sleep(&self) -> std::time::Duration {
@@ -144,11 +137,11 @@ impl Config {
 
             if let Some(e) = parts.next() {
                 if !e.is_empty() {
-                    new.o_endpoint = Some(e);
+                    new.endpoint = e;
                 }
             }
 
-            if new.endpoint().is_empty() {
+            if new.endpoint.is_empty() {
                 let emsg = format!(
                     "Empty endpoint without a default in '{}' for file:'{}', entry:'{}'",
                     line, self.script, idx
@@ -222,7 +215,7 @@ mod test {
     #[allow(unused)]
     fn config() -> Config {
         Config {
-            o_endpoint: Some("http://www.example.com".to_string()),
+            endpoint: "http://www.example.com".to_string(),
             method: "GET".to_string(),
             headers: vec!["foo=bar".to_string()],
             script: "".to_string(),
@@ -237,7 +230,7 @@ mod test {
         let mut c = config();
         assert!(c.is_valid());
 
-        c.o_endpoint = None;
+        c.endpoint = String::new();
         assert!(!c.is_valid());
 
         c.script = "file.txt".to_string();
@@ -247,10 +240,10 @@ mod test {
     #[test]
     fn endpoint_test() {
         let mut c = config();
-        assert_eq!(c.endpoint(), "http://www.example.com".to_string());
+        assert_eq!(c.endpoint, "http://www.example.com".to_string());
 
-        c.o_endpoint = None;
-        assert_eq!(c.endpoint(), "".to_string());
+        c.endpoint = String::new();
+        assert_eq!(c.endpoint, "".to_string());
     }
 
     #[test]
