@@ -11,29 +11,38 @@ static SPLIT_HEADER_CHAR: char = ';';
 // TODO: Split header kv string on '=' also
 static SPLIT_HEADER_VALUE_CHAR: char = ':';
 
+/// This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
 #[derive(Parser, Debug, Clone)]
+#[command(version, about, long_about = None)]
 pub struct Config {
-    #[arg(long = "endpoint", short = 'e')]
-    pub o_endpoint: Option<String>, // REQUIRED
-    // TODO: This shouldn't be required when 'input' is passed.
-    #[arg(long, short, default_value = "GET")]
-    pub method: String,
-
-    #[arg(long, short = 'x', default_value = "")]
-    pub headers: Vec<String>,
-
+    /// File path containing a list of options to be used, in place of other arguments
     #[arg(long = "script", short = 'f')]
     pub o_script: Option<String>,
 
+    /// Target endpoint to make an http requests against
+    #[arg(long = "endpoint", short = 'e')]
+    pub o_endpoint: Option<String>, // REQUIRED
+
+    /// Method to be used when making an http requests
+    #[arg(long, short, default_value = "GET")]
+    pub method: String,
+
+    /// Headers to be used when making an http requests
+    #[arg(long, short = 'x', default_value = "")]
+    pub headers: Vec<String>,
+
+    /// Number of requests to make for each endpoint
+    #[arg(long, short = 'n', default_value_t = 1)]
+    pub iterations: usize,
+
+    /// Built in sleep duration (in milliseconds) to be used when making multiple requests
     #[arg(long = "sleep", short = 's')]
     pub o_sleep: Option<u64>,
 
     // TODO: Make '--verbose' without a value work.
+    /// Enable verbose output
     #[arg(long = "verbose", short = 'v')]
     pub o_verbose: Option<bool>,
-
-    #[arg(long, short = 'n', default_value_t = 1)]
-    pub iterations: usize,
 }
 
 impl Config {
