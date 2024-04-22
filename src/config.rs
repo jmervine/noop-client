@@ -36,8 +36,8 @@ pub struct Config {
     pub iterations: usize,
 
     /// Built in sleep duration (in milliseconds) to be used when making multiple requests
-    #[arg(long = "sleep", short = 's')]
-    pub o_sleep: Option<u64>,
+    #[arg(long = "sleep", short = 's', default_value = "0")]
+    pub sleep: u64,
 
     // TODO: Make '--verbose' without a value work.
     /// Enable verbose output
@@ -51,13 +51,7 @@ impl Config {
     }
 
     pub fn sleep(&self) -> std::time::Duration {
-        let s = match &self.o_sleep {
-            Some(s) => s.clone(),
-            _ => return std::time::Duration::ZERO,
-        };
-
-        let t = std::time::Duration::from_millis(s);
-        return t;
+        return std::time::Duration::from_millis(self.sleep);
     }
 
     pub fn verbose(&self) -> bool {
@@ -156,15 +150,22 @@ impl Config {
                 }
             }
 
-            if let Some(s) = parts.next() {
-                if !s.is_empty() {
-                    let sm = s.parse::<u64>();
-                    if sm.is_err() {
-                        let emsg = format!("Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'", s, line, self.script, idx);
-                        return Err(err_from_string!(emsg));
+            if let Some(sleep) = parts.next() {
+                if !sleep.is_empty() {
+                    match sleep.parse::<u64>() {
+                        Ok(sleep) => {
+                            new.sleep = sleep;
+                        }
+                        Err(_) => {
+                            return Err(err_from_string!(format!(
+                                "Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'",
+                                sleep,
+                                line,
+                                self.script,
+                                idx
+                            )));
+                        }
                     }
-
-                    new.o_sleep = Some(sm.unwrap());
                 }
             }
 
@@ -219,7 +220,7 @@ mod test {
             method: "GET".to_string(),
             headers: vec!["foo=bar".to_string()],
             script: "".to_string(),
-            o_sleep: None,
+            sleep: 0,
             o_verbose: None,
             iterations: 1,
         }
