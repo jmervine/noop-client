@@ -16,8 +16,8 @@ static SPLIT_HEADER_VALUE_CHAR: char = ':';
 #[command(version, about, long_about = None)]
 pub struct Config {
     /// File path containing a list of options to be used, in place of other arguments
-    #[arg(long = "script", short = 'f')]
-    pub o_script: Option<String>,
+    #[arg(long = "script", short = 'f', default_value = "")]
+    pub script: String,
 
     /// Target endpoint to make an http requests against
     #[arg(long = "endpoint", short = 'e')]
@@ -47,19 +47,12 @@ pub struct Config {
 
 impl Config {
     pub fn is_valid(&self) -> bool {
-        return !(self.endpoint().is_empty() && self.script().is_empty());
+        return !(self.endpoint().is_empty() && self.script.is_empty());
     }
 
     pub fn endpoint(&self) -> String {
         match &self.o_endpoint {
             Some(endpoint) => endpoint.clone(),
-            _ => String::new(),
-        }
-    }
-
-    pub fn script(&self) -> String {
-        match &self.o_script {
-            Some(script) => script.clone(),
             _ => String::new(),
         }
     }
@@ -82,11 +75,11 @@ impl Config {
     }
 
     fn has_file(&self) -> bool {
-        if self.script().is_empty() {
+        if self.script.is_empty() {
             return false;
         }
 
-        if fs::metadata(self.script().clone()).is_err() {
+        if fs::metadata(self.script.clone()).is_err() {
             return false;
         }
 
@@ -101,7 +94,7 @@ impl Config {
             return Ok(configs);
         }
 
-        let content = File::open(&self.script());
+        let content = File::open(self.script.clone());
         if content.is_err() {
             return Err(err_from_result!(content));
         }
@@ -127,10 +120,7 @@ impl Config {
                 // TODO: Consider skipping and warning, over erroring.
                 let emsg = format!(
                     "Found {} of 5 expected fields in '{}' for file:'{}', entry:'{}'",
-                    n,
-                    line,
-                    &self.script(),
-                    idx
+                    n, line, self.script, idx
                 );
                 return Err(err_from_string!(emsg));
             }
@@ -161,9 +151,7 @@ impl Config {
             if new.endpoint().is_empty() {
                 let emsg = format!(
                     "Empty endpoint without a default in '{}' for file:'{}', entry:'{}'",
-                    line,
-                    &self.script(),
-                    idx
+                    line, self.script, idx
                 );
                 return Err(err_from_string!(emsg));
             }
@@ -179,7 +167,7 @@ impl Config {
                 if !s.is_empty() {
                     let sm = s.parse::<u64>();
                     if sm.is_err() {
-                        let emsg = format!("Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'", s, line, &self.script(), idx);
+                        let emsg = format!("Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'", s, line, self.script, idx);
                         return Err(err_from_string!(emsg));
                     }
 
@@ -237,7 +225,7 @@ mod test {
             o_endpoint: Some("http://www.example.com".to_string()),
             method: "GET".to_string(),
             headers: vec!["foo=bar".to_string()],
-            o_script: None,
+            script: "".to_string(),
             o_sleep: None,
             o_verbose: None,
             iterations: 1,
@@ -252,7 +240,7 @@ mod test {
         c.o_endpoint = None;
         assert!(!c.is_valid());
 
-        c.o_script = Some("file.txt".to_string());
+        c.script = "file.txt".to_string();
         assert!(c.is_valid());
     }
 
@@ -268,10 +256,10 @@ mod test {
     #[test]
     fn script_test() {
         let mut c = config();
-        assert_eq!(c.script(), "".to_string());
+        assert_eq!(c.script, "".to_string());
 
-        c.o_script = Some("file.txt".to_string());
-        assert_eq!(c.script(), "file.txt".to_string());
+        c.script = "file.txt".to_string();
+        assert_eq!(c.script, "file.txt".to_string());
     }
 
     #[test]
@@ -280,11 +268,11 @@ mod test {
 
         assert!(!c.has_file()); // with none
 
-        c.o_script = Some("this_should_never_exist.ack".to_string());
+        c.script = "this_should_never_exist.ack".to_string();
         assert!(!c.has_file()); // with invalid file
 
         // Fragile - assume project root
-        c.o_script = Some("test/test_script.txt".to_string());
+        c.script = "test/test_script.txt".to_string();
         assert!(c.has_file()); // with valid file
     }
 
