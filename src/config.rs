@@ -7,9 +7,7 @@ use crate::*;
 
 static SPLIT_SCRIPT_CHAR: char = '|';
 static SPLIT_HEADER_CHAR: char = ';';
-
-// TODO: Split header kv string on '=' also
-static SPLIT_HEADER_VALUE_CHAR: char = ':';
+static SPLIT_HEADER_VALUE_CHAR: [char; 2] = [':', '='];
 
 /// This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
 #[derive(Parser, Debug, Clone)]
@@ -180,6 +178,19 @@ impl Config {
     }
 }
 
+fn delim_in(string: String) -> char {
+    let current_char: char = SPLIT_HEADER_VALUE_CHAR[0];
+    let string_chars: Vec<char> = string.chars().collect();
+    for i_delim in 0..SPLIT_HEADER_VALUE_CHAR.len() {
+        for i_char in 0..string_chars.len() {
+            if SPLIT_HEADER_VALUE_CHAR[i_delim] == string_chars[i_char] {
+                return SPLIT_HEADER_VALUE_CHAR[i_delim];
+            }
+        }
+    }
+    return current_char;
+}
+
 // ---
 // I'm not totally sure this belongs in this package, but there is other splitting here
 // TODO: Consider storing headers as `Vec<(String, String>)>`
@@ -189,7 +200,8 @@ pub trait HeaderStringSplit {
 
 impl HeaderStringSplit for String {
     fn to_header(self) -> Result<(String, String), utils::Errors> {
-        match self.split_once(SPLIT_HEADER_VALUE_CHAR) {
+        let delim: char = delim_in(self.clone());
+        match self.split_once(delim) {
             Some((name, value)) => {
                 if name == "" {
                     return Err(err_from_string!(format!(
@@ -294,13 +306,18 @@ mod test {
 
     #[test]
     fn to_header_from_string_test() {
-        let good = "foo:bar".to_string().to_header();
+        let good1 = "foo:bar".to_string().to_header();
+        let good2 = "foo=bar".to_string().to_header();
         let fine = "foo:".to_string().to_header();
         let ugly = ":bar".to_string().to_header();
         let none = "".to_string().to_header();
 
-        assert!(good.is_ok());
+        assert!(good1.is_ok());
+        assert_eq!(good1.unwrap(), ("foo".to_string(), "bar".to_string()));
+        assert!(good2.is_ok());
+        assert_eq!(good2.unwrap(), ("foo".to_string(), "bar".to_string()));
         assert!(fine.is_ok());
+        assert_eq!(fine.unwrap(), ("foo".to_string(), "".to_string()));
         assert!(ugly.is_err());
         assert!(none.is_err());
     }
