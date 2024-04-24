@@ -13,32 +13,6 @@ pub(crate) mod macros {
         }};
     }
 
-    // #[macro_export]
-    // macro_rules! err_from_string {
-    //     ($s:expr) => {{
-    //         utils::Errors::Error(format!("[{}:{}] {}", file!(), line!(), $s))
-    //     }};
-    // }
-
-    // #[macro_export]
-    // macro_rules! err_from_error {
-    //     ($e:expr) => {{
-    //         utils::Errors::Error(format!("[{}:{}] {}", file!(), line!(), $e.to_string()))
-    //     }};
-    // }
-
-    // #[macro_export]
-    // macro_rules! err_from_result {
-    //     ($e:expr) => {{
-    //         utils::Errors::Error(format!(
-    //             "[{}:{}] {}",
-    //             file!(),
-    //             line!(),
-    //             $e.unwrap_err().to_string()
-    //         ))
-    //     }};
-    // }
-
     #[macro_export]
     macro_rules! is_verbose {
         () => {
