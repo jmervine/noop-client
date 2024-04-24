@@ -1,163 +1,127 @@
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use reqwest::Client as RClient;
-use reqwest::{Method, Url};
-use reqwest::{Request, Response};
-use std::str::FromStr;
-
 use crate::*;
+use reqwest;
+use reqwest::header;
+use std::error;
 
-#[derive(Debug, Clone)]
+static SPLIT_HEADER_VALUE_CHAR: [char; 2] = [':', '='];
+
+//#[derive(Debug, Clone)]
 pub struct Client {
-    client: RClient,
-    iterations: usize,
-
-    pub method: Method,
-    pub endpoint: Url,
-    headers: Vec<String>,
-
-    sleep: std::time::Duration,
+    method: reqwest::Method,
+    endpoint: reqwest::Url,
+    headers: header::HeaderMap,
 }
 
 impl Client {
-    // TODO: Refactor to take headers as Vec
     pub fn new(
-        method: &str,
-        endpoint: &str,
+        method: String,
+        endpoint: String,
         headers: Vec<String>,
-        itr: usize,
-        sleep: std::time::Duration,
-    ) -> Result<Client, utils::Errors> {
-        let builder = RClient::builder(); //.default_headers(map);
+    ) -> Result<Client, Box<dyn error::Error>> {
+        let method = reqwest::Method::from_bytes(method.as_bytes())?;
+        let endpoint = reqwest::Url::parse(&endpoint)?;
+        let headers = header_map(headers)?;
 
-        let e = Url::parse(endpoint);
-        if e.is_err() {
-            let emsg = format!("Error parsing '{}', err: {:?}", endpoint, e);
-            return Err(err_from_string!(emsg));
-        }
-
-        let m = Method::from_str(method);
-        if m.is_err() {
-            let emsg = format!("Error parsing '{}', err: {:?}", method, e);
-            return Err(err_from_string!(emsg));
-        }
-
-        let i = if itr == 0 { 1 } else { itr };
-
-        let c = builder.build();
-        if c.is_err() {
-            let emsg = format!("Error building '{:?}', err: {:?}", method, c);
-            return Err(err_from_string!(emsg));
-        }
-
-        Ok(Client {
-            client: c.unwrap(),
-            method: m.unwrap(),
-            endpoint: e.unwrap(),
-            iterations: i,
+        return Ok(Client {
+            method: method,
+            endpoint: endpoint,
             headers: headers,
-            sleep: sleep,
-        })
+        });
     }
 
-    async fn exec(&self) -> Result<Response, utils::Errors> {
-        let mut req = Request::new(self.method.clone(), self.endpoint.clone());
+    // Only returning status code or error right now.
+    pub fn execute(&self) -> Result<u16, Box<dyn error::Error>> {
+        let client = reqwest::blocking::Client::new();
+        let mut request = client.request(self.method.clone(), self.endpoint.clone());
 
-        let headers = req.headers_mut();
-
-        // Empty okay
-        if !self.headers.is_empty() {
-            let mapped = self.headers.clone().header_map()?;
-
-            for (name, val) in mapped {
-                headers.insert(name.unwrap(), val);
+        for (key, value) in self.headers.clone() {
+            if let Some(key) = key {
+                request = request.header(key, value);
             }
         }
 
-        debug!(format!("{:?}", req));
-        if self.sleep > std::time::Duration::ZERO {
-            tokio::time::sleep(self.sleep).await;
-        }
-        let res = self.client.execute(req).await;
-        if res.is_err() {
-            return Err(err_from_result!(res));
-        }
+        let request = request.build()?;
+        debug!(format!("{:?}", request));
 
-        let r = res.unwrap();
-        debug!(format!("{:?}", r));
+        let response = client.execute(request)?;
+        debug!(format!("{:?}", response));
 
-        Ok(r)
-    }
-
-    // Return a vector of tuples with response and optional error
-    pub async fn run(&self) -> Vec<Result<Response, utils::Errors>> {
-        let mut results: Vec<Result<Response, utils::Errors>> = vec![];
-        for _ in 0..self.iterations {
-            let result = self.exec().await;
-            results.push(result);
-        }
-
-        results
+        return Ok(response.status().as_u16());
     }
 }
 
-pub trait HeaderMapForClientRequest {
-    fn header_map(&self) -> Result<HeaderMap, utils::Errors>;
+fn header_map(headers: Vec<String>) -> Result<header::HeaderMap, Box<dyn error::Error>> {
+    let mut map = header::HeaderMap::new();
+    if headers.is_empty() {
+        return Ok(map);
+    }
+
+    for header in headers {
+        if header != "" {
+            let (key, val) = header.to_header()?;
+            if !key.is_empty() && !val.is_empty() {
+                let key = header::HeaderName::from_bytes(key.as_bytes())?;
+                let val = header::HeaderValue::from_bytes(val.as_bytes())?;
+
+                map.append(key, val);
+            }
+        }
+    }
+
+    return Ok(map);
 }
 
-impl HeaderMapForClientRequest for Vec<String> {
-    fn header_map(&self) -> Result<HeaderMap, utils::Errors> {
-        let mut map = HeaderMap::new();
+pub trait HeaderStringSplit {
+    fn to_header(self) -> Result<(String, String), Box<dyn std::error::Error>>;
+}
 
-        // Empty okay
-        if !self.is_empty() {
-            for header in self {
-                //let (name, value) = header.clone().to_header()?;
-                let header = header.clone().to_header();
-                match header {
-                    Ok((k, v)) => {
-                        // Forgoing additional error checking here, because I validate in 'to_header()' already.
-                        map.insert(
-                            HeaderName::from_str(&k).unwrap(),
-                            HeaderValue::from_str(&v).unwrap(),
-                        );
-                    }
-                    Err(utils::Errors::Ignorable) => {}
-                    Err(err) => return Err(err),
+impl HeaderStringSplit for String {
+    fn to_header(self) -> Result<(String, String), Box<dyn std::error::Error>> {
+        let delim: char = delim_in(self.clone());
+        match self.split_once(delim) {
+            Some((name, value)) => {
+                if name == "" {
+                    return Err(format!("Name cannot be empty in '{}'", self).into());
                 }
+                return Ok((name.to_string(), value.to_string()));
             }
+            None => return Err(format!("Header values cannot be empty in '{}'", self).into()),
         }
-
-        Ok(map)
     }
 }
 
-mod tests {
-    // For some reason this doesn't show as being used, even though it is.
+fn delim_in(string: String) -> char {
+    let current_char: char = SPLIT_HEADER_VALUE_CHAR[0];
+    let string_chars: Vec<char> = string.chars().collect();
+    for i_delim in 0..SPLIT_HEADER_VALUE_CHAR.len() {
+        for i_char in 0..string_chars.len() {
+            if SPLIT_HEADER_VALUE_CHAR[i_delim] == string_chars[i_char] {
+                return SPLIT_HEADER_VALUE_CHAR[i_delim];
+            }
+        }
+    }
+    return current_char;
+}
+
+mod test {
     #[allow(unused_imports)]
     use super::*;
 
     #[test]
-    fn new_test() {
-        let s = std::time::Duration::from_millis(0);
-        let good = Client::new("GET", "http://localhost/", vec![], 0, s);
-        let err1 = Client::new("", "http://localhost/", vec![], 0, s);
-        let err2 = Client::new("GET", "bad_url", vec![], 0, s);
+    fn to_header_from_string_test() {
+        let good1 = "foo:bar".to_string().to_header();
+        let good2 = "foo=bar".to_string().to_header();
+        let fine = "foo:".to_string().to_header();
+        let ugly = ":bar".to_string().to_header();
+        let none = "".to_string().to_header();
 
-        assert!(good.is_ok());
-        assert!(err1.is_err());
-        assert!(err2.is_err());
-    }
-
-    #[test]
-    fn header_map_test() {
-        let good: Vec<String> = vec!["foo:bar".to_string()];
-        let fine: Vec<String> = vec!["foo:".to_string()];
-        let ugly: Vec<String> = vec![":bar".to_string()];
-        let none: Vec<String> = vec!["".to_string()];
-
-        assert!(good.header_map().is_ok());
-        assert!(fine.header_map().is_ok());
-        assert!(ugly.header_map().is_err());
-        assert!(none.header_map().is_ok());
+        assert!(good1.is_ok());
+        assert_eq!(good1.unwrap(), ("foo".to_string(), "bar".to_string()));
+        assert!(good2.is_ok());
+        assert_eq!(good2.unwrap(), ("foo".to_string(), "bar".to_string()));
+        assert!(fine.is_ok());
+        assert_eq!(fine.unwrap(), ("foo".to_string(), "".to_string()));
+        assert!(ugly.is_err());
+        assert!(none.is_err());
     }
 }

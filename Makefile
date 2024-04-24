@@ -25,7 +25,7 @@ run_args:
 run_script:
 	# run with script file
 	$(RUN) --bin $(BIN) -- --script=test/test_script.txt \
-		--endpoint=http://localhost:3000/default --verbose=$(VERBOSE)
+		--endpoint=http://localhost:3000/default --verbose
 
 run_load: build
 	./target/release/noop-client -f ./examples/load_script.txt

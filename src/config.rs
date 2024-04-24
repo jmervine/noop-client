@@ -1,13 +1,11 @@
+use std::error;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 
 use clap::Parser;
 
-use crate::*;
-
 static SPLIT_SCRIPT_CHAR: char = '|';
 static SPLIT_HEADER_CHAR: char = ';';
-static SPLIT_HEADER_VALUE_CHAR: [char; 2] = [':', '='];
 
 /// This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
 #[derive(Parser, Debug, Clone)]
@@ -68,7 +66,7 @@ impl Config {
         return true;
     }
 
-    pub fn to_vector(&self) -> Result<Vec<Config>, utils::Errors> {
+    pub fn to_vector(&self) -> Result<Vec<Config>, Box<dyn error::Error>> {
         let mut configs: Vec<Config> = vec![];
 
         if !self.has_file() {
@@ -76,20 +74,11 @@ impl Config {
             return Ok(configs);
         }
 
-        let content = File::open(self.script.clone());
-        if content.is_err() {
-            return Err(err_from_result!(content));
-        }
+        let content = File::open(self.script.clone())?;
+        let lines = BufReader::new(content).lines();
 
-        let lines = BufReader::new(content.unwrap()).lines();
-
-        for (idx, l) in lines.enumerate() {
-            if l.is_err() {
-                return Err(err_from_result!(l));
-            }
-
-            let line = l.unwrap();
-
+        for (idx, line) in lines.enumerate() {
+            let line = line?;
             if line.is_empty() || line.starts_with("#") {
                 continue;
             }
@@ -97,14 +86,13 @@ impl Config {
             let mut new = self.clone();
 
             // Find the number of '|' characters (+1) to to match the number of fields (to be clear)
-            let n = line.chars().filter(|&c| c == '|').count() + 1;
-            if n != 5 {
-                // TODO: Consider skipping and warning, over erroring.
-                let emsg = format!(
+            let pipe_count = line.chars().filter(|&c| c == '|').count() + 1;
+            if pipe_count != 5 {
+                return Err(format!(
                     "Found {} of 5 expected fields in '{}' for file:'{}', entry:'{}'",
-                    n, line, self.script, idx
-                );
-                return Err(err_from_string!(emsg));
+                    pipe_count, line, self.script, idx
+                )
+                .into());
             }
 
             let mut parts = line.split(SPLIT_SCRIPT_CHAR).map(|p| p.to_string());
@@ -131,11 +119,11 @@ impl Config {
             }
 
             if new.endpoint.is_empty() {
-                let emsg = format!(
+                return Err(format!(
                     "Empty endpoint without a default in '{}' for file:'{}', entry:'{}'",
                     line, self.script, idx
-                );
-                return Err(err_from_string!(emsg));
+                )
+                .into());
             }
 
             // Fetch for headers, or use default from 'new'
@@ -152,13 +140,10 @@ impl Config {
                             new.sleep = sleep;
                         }
                         Err(_) => {
-                            return Err(err_from_string!(format!(
+                            return Err(format!(
                                 "Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'",
-                                sleep,
-                                line,
-                                self.script,
-                                idx
-                            )));
+                                sleep, line, self.script, idx
+                            ).into());
                         }
                     }
                 }
@@ -166,9 +151,7 @@ impl Config {
 
             // panic if not valid
             if !new.is_valid() {
-                return Err(err_from_string!(
-                    "Invalid configurations, see help for details.".to_string()
-                ));
+                return Err("Invalid configurations, see help for details.".into());
             }
 
             configs.push(new);
@@ -178,44 +161,7 @@ impl Config {
     }
 }
 
-fn delim_in(string: String) -> char {
-    let current_char: char = SPLIT_HEADER_VALUE_CHAR[0];
-    let string_chars: Vec<char> = string.chars().collect();
-    for i_delim in 0..SPLIT_HEADER_VALUE_CHAR.len() {
-        for i_char in 0..string_chars.len() {
-            if SPLIT_HEADER_VALUE_CHAR[i_delim] == string_chars[i_char] {
-                return SPLIT_HEADER_VALUE_CHAR[i_delim];
-            }
-        }
-    }
-    return current_char;
-}
-
 // ---
-// I'm not totally sure this belongs in this package, but there is other splitting here
-// TODO: Consider storing headers as `Vec<(String, String>)>`
-pub trait HeaderStringSplit {
-    fn to_header(self) -> Result<(String, String), utils::Errors>;
-}
-
-impl HeaderStringSplit for String {
-    fn to_header(self) -> Result<(String, String), utils::Errors> {
-        let delim: char = delim_in(self.clone());
-        match self.split_once(delim) {
-            Some((name, value)) => {
-                if name == "" {
-                    return Err(err_from_string!(format!(
-                        "Name cannot be empty in '{}'",
-                        self
-                    )));
-                }
-                return Ok((name.to_string(), value.to_string()));
-            }
-            None => return Err(utils::Errors::Ignorable),
-        }
-    }
-}
-
 mod test {
     // For some reason this doesn't show as being used, even though it is.
     #[allow(unused_imports)]
@@ -286,8 +232,10 @@ mod test {
         // with no file
         let v = c.to_vector();
         assert!(!v.is_err());
-        assert_eq!(v.clone().unwrap().len(), 1);
-        assert_eq!(v.clone().unwrap()[0].method, "GET".to_string());
+
+        let v = v.unwrap().clone();
+        assert_eq!(v.len(), 1);
+        assert_eq!(v[0].method, "GET".to_string());
 
         // TODO: Test Config#to_vector() with 'test/test_script.txt'
     }
@@ -302,23 +250,5 @@ mod test {
 
         c.verbose = true;
         assert!(c.verbose);
-    }
-
-    #[test]
-    fn to_header_from_string_test() {
-        let good1 = "foo:bar".to_string().to_header();
-        let good2 = "foo=bar".to_string().to_header();
-        let fine = "foo:".to_string().to_header();
-        let ugly = ":bar".to_string().to_header();
-        let none = "".to_string().to_header();
-
-        assert!(good1.is_ok());
-        assert_eq!(good1.unwrap(), ("foo".to_string(), "bar".to_string()));
-        assert!(good2.is_ok());
-        assert_eq!(good2.unwrap(), ("foo".to_string(), "bar".to_string()));
-        assert!(fine.is_ok());
-        assert_eq!(fine.unwrap(), ("foo".to_string(), "".to_string()));
-        assert!(ugly.is_err());
-        assert!(none.is_err());
     }
 }
