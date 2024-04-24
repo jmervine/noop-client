@@ -1,5 +1,5 @@
-200000|GET|http://localhost:3000/request1|User-Agent:noop-client;X-Load:run1|0
-200000|POST|http://localhost:3000/request2|User-Agent:noop-client;X-Load:run2|0
-200000|DELETE|http://localhost:3000/request3|User-Agent:noop-client;X-Load:run3|0
-200000|GET|http://localhost:3000/request4|User-Agent:noop-client;X-Load:run4|0
-200000|GET|http://localhost:3000/request5|User-Agent:noop-client;X-Load:run4;X-Noopserverflags:echo,status=404|0
+20000|GET|http://localhost:3000/request1|User-Agent:noop-client;X-Load:run1|100
+20000|POST|http://localhost:3000/request2|User-Agent:noop-client;X-Load:run2|100
+20000|DELETE|http://localhost:3000/request3|User-Agent:noop-client;X-Load:run3|100
+20000|GET|http://localhost:3000/request4|User-Agent:noop-client;X-Load:run4|100
+20000|GET|http://localhost:3000/request5|User-Agent:noop-client;X-Load:run4;X-Noopserverflags:echo,status=404|100

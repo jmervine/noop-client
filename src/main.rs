@@ -3,16 +3,21 @@ mod utils;
 mod client;
 mod config;
 
-use clap::Parser;
 use config::Config;
 
+use clap::Parser;
+use scoped_pool::Pool;
+use signal_hook::flag;
 use std::error;
-use std::sync::{Arc, Mutex};
+use std::sync;
+use std::sync::atomic;
+use std::sync::atomic::AtomicBool;
 use std::thread;
 use std::time;
 
 struct Counter {
-    total: usize,
+    requested: usize,
+    processed: usize,
     success: usize,
     fail: usize,
     error: usize,
@@ -21,15 +26,9 @@ struct Counter {
 static mut VERBOSE: bool = false;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
-    let start_time = time::Instant::now();
-    let mut handles = vec![];
-
-    let counter = Arc::new(Mutex::new(Counter {
-        total: 0,
-        success: 0,
-        fail: 0,
-        error: 0,
-    }));
+    let threadpool = Pool::new(10);
+    let sigint = sync::Arc::new(AtomicBool::new(false));
+    flag::register(signal_hook::consts::SIGINT, sync::Arc::clone(&sigint))?;
 
     let config: Config = Config::parse();
     if !config.is_valid() {
@@ -42,13 +41,28 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     set_verbose!(config.verbose);
 
     let configs = config.to_vector()?;
-    //let expected: usize = configs.clone().into_iter().map(|c| c.iterations).sum();
+    let requested: usize = configs.clone().into_iter().map(|c| c.iterations).sum();
 
+    let counter = sync::Arc::new(sync::Mutex::new(Counter {
+        requested: requested,
+        processed: 0,
+        success: 0,
+        fail: 0,
+        error: 0,
+    }));
+
+    let (count_tx, count_rx) = sync::mpsc::channel();
+    let (kill_tx, kill_rx) = sync::mpsc::channel();
+
+    let start_time = time::Instant::now();
     for config in configs {
         for _ in 0..config.iterations {
-            let shared_counter = Arc::clone(&counter);
+            let shared_counter = sync::Arc::clone(&counter);
             let config = config.clone();
-            let joiner = thread::spawn(move || {
+
+            let count_tx = count_tx.clone();
+            threadpool.spawn(move || {
+                let _ = count_tx.send(1);
                 let mut locked_counter = shared_counter.lock().unwrap();
 
                 if config.sleep() > time::Duration::ZERO {
@@ -58,6 +72,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                 let (method, endpoint, headers) = (config.method, config.endpoint, config.headers);
                 let client = client::Client::new(method.clone(), endpoint.clone(), headers.clone());
                 if client.is_err() {
+                    locked_counter.error += 1;
                     eprintln!(
                         "Failed to create client method='{}', endpoint='{}', headers='{:?}'",
                         method, endpoint, headers,
@@ -65,37 +80,61 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                     return;
                 }
 
-                if let Ok(code) = client.unwrap().execute() {
-                    if code >= 200 || code < 300 {
-                        locked_counter.success += 1;
-                    } else {
-                        locked_counter.fail += 1;
+                match client.unwrap().execute() {
+                    Ok(code) => {
+                        if code >= 200 || code < 300 {
+                            locked_counter.success += 1;
+                        } else {
+                            locked_counter.fail += 1;
+                        }
                     }
-                } else {
-                    locked_counter.error += 1;
+                    Err(_) => {
+                        locked_counter.error += 1;
+                    }
                 }
+                locked_counter.processed += 1;
             });
-            handles.push(joiner);
         }
     }
 
-    for handle in handles {
-        handle.join().unwrap();
-    }
+    let kill = kill_tx.clone();
+    thread::spawn(move || {
+        while !sigint.load(atomic::Ordering::Relaxed) {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
 
-    print_results(counter, start_time);
+        println!("SIGINT called, shutting down...");
+        let _ = kill.send(true);
+    });
+
+    let kill = kill_tx.clone();
+    thread::spawn(move || {
+        let mut count: usize = 0;
+        while count < requested {
+            if let Ok(_) = count_rx.recv() {
+                count += 1;
+            }
+        }
+        let _ = kill.send(true);
+    });
+
+    if let Ok(_) = kill_rx.recv() {
+        print_results(counter, start_time);
+    }
 
     return Ok(());
 }
 
-fn print_results(counts: Arc<Mutex<Counter>>, start_time: time::Instant) {
+fn print_results(counts: sync::Arc<sync::Mutex<Counter>>, start_time: time::Instant) {
     let counts = counts.lock().unwrap();
     println!("-------------------------");
-    println!("  Requests sent: {:?}", counts.total);
+    println!("      Requested: {:?}", counts.requested);
     println!("-------------------------");
     println!("        success: {:?}", counts.success);
     println!("        failure: {:?}", counts.fail);
     println!("         errors: {:?}", counts.error);
+    println!("----------------------");
+    println!("      Processed: {:?}", counts.processed);
     println!("----------------------");
     let duration = time::Instant::now() - start_time;
     println!("Run took: {:?}", duration);
