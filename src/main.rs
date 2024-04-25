@@ -39,10 +39,9 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     }
     set_verbose!(config.verbose);
 
-    let threadpool = Pool::new(config.pool_size);
-
     let configs = config.to_vector()?;
     let requested: usize = configs.clone().into_iter().map(|c| c.iterations).sum();
+    let threadpool = Pool::new(config.pool_size);
 
     let counter = sync::Arc::new(sync::Mutex::new(Counter {
         requested: requested,
@@ -56,6 +55,8 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let (kill_tx, kill_rx) = sync::mpsc::channel();
 
     let start_time = time::Instant::now();
+    // TODO: Pretty print.
+    println!("Starting noop-client with {:?}", config);
     for config in configs {
         for _ in 0..config.iterations {
             let shared_counter = sync::Arc::clone(&counter);
@@ -126,6 +127,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     return Ok(());
 }
 
+// TODO: Support printing on SIGHUB
 fn print_results(counts: sync::Arc<sync::Mutex<Counter>>, start_time: time::Instant) {
     let counts = counts.lock().unwrap();
     println!("-------------------------");
