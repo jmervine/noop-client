@@ -35,6 +35,10 @@ pub struct Config {
     #[arg(long = "sleep", short = 's', default_value = "0")]
     pub sleep: u64,
 
+    /// Number of parallel requests
+    #[arg(long = "pool-size", short = 'p', default_value = "100")]
+    pub pool_size: usize,
+
     /// Enable verbose output
     #[arg(
         long = "verbose",
@@ -178,6 +182,7 @@ mod test {
             sleep: 0,
             verbose: false,
             iterations: 1,
+            pool_size: 1,
         }
     }
 
@@ -236,8 +241,6 @@ mod test {
         let v = v.unwrap().clone();
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].method, "GET".to_string());
-
-        // TODO: Test Config#to_vector() with 'test/test_script.txt'
     }
 
     #[test]

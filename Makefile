@@ -27,8 +27,10 @@ run_script:
 	$(RUN) --bin $(BIN) -- --script=test/test_script.txt \
 		--endpoint=http://localhost:3000/default --verbose
 
-run_load: build
-	./target/release/noop-client -f ./examples/load_script.txt
+run_load: clean build
+	docker-compose -f ./examples/compose.yaml up -d
+	./target/release/noop-client -f ./examples/load_script.txt -p 1024
+	docker-compose -f ./examples/compose.yaml stop
 
 .PHONY: test
 test:

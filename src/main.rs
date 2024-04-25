@@ -26,7 +26,6 @@ struct Counter {
 static mut VERBOSE: bool = false;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
-    let threadpool = Pool::new(10);
     let sigint = sync::Arc::new(AtomicBool::new(false));
     flag::register(signal_hook::consts::SIGINT, sync::Arc::clone(&sigint))?;
 
@@ -39,6 +38,8 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         std::process::exit(1);
     }
     set_verbose!(config.verbose);
+
+    let threadpool = Pool::new(config.pool_size);
 
     let configs = config.to_vector()?;
     let requested: usize = configs.clone().into_iter().map(|c| c.iterations).sum();
