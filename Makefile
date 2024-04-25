@@ -29,6 +29,7 @@ run_script:
 
 run_load: clean build
 	docker-compose -f ./examples/compose.yaml up -d
+	# Be patient, this will take a while...
 	./target/release/noop-client -f ./examples/load_script.txt -p 1024
 	docker-compose -f ./examples/compose.yaml stop
 
