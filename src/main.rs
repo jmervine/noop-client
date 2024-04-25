@@ -65,7 +65,6 @@ fn main() -> Result<(), Box<dyn error::Error>> {
             let count_tx = count_tx.clone();
             threadpool.spawn(move || {
                 let _ = count_tx.send(1);
-                let mut locked_counter = shared_counter.lock().unwrap();
 
                 if config.sleep() > time::Duration::ZERO {
                     thread::sleep(config.sleep());
@@ -74,6 +73,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                 let (method, endpoint, headers) = (config.method, config.endpoint, config.headers);
                 let client = client::Client::new(method.clone(), endpoint.clone(), headers.clone());
                 if client.is_err() {
+                    let mut locked_counter = shared_counter.lock().unwrap();
                     locked_counter.error += 1;
                     eprintln!(
                         "Failed to create client method='{}', endpoint='{}', headers='{:?}'",
@@ -82,7 +82,9 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                     return;
                 }
 
-                match client.unwrap().execute() {
+                let code = client.unwrap().execute();
+                let mut locked_counter = shared_counter.lock().unwrap();
+                match code {
                     Ok(code) => {
                         if code >= 200 || code < 300 {
                             locked_counter.success += 1;
@@ -98,6 +100,8 @@ fn main() -> Result<(), Box<dyn error::Error>> {
             });
         }
     }
+
+    let _ = hup_waiter(counter.clone(), start_time);
 
     let kill = kill_tx.clone();
     thread::spawn(move || {
@@ -121,14 +125,13 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     });
 
     if let Ok(_) = kill_rx.recv() {
-        print_results(counter, start_time);
+        final_results(counter, start_time);
     }
 
     return Ok(());
 }
 
-// TODO: Support printing on SIGHUB
-fn print_results(counts: sync::Arc<sync::Mutex<Counter>>, start_time: time::Instant) {
+fn final_results(counts: sync::Arc<sync::Mutex<Counter>>, start_time: time::Instant) {
     let counts = counts.lock().unwrap();
     println!("-------------------------");
     println!("      Requested: {:?}", counts.requested);
@@ -141,4 +144,35 @@ fn print_results(counts: sync::Arc<sync::Mutex<Counter>>, start_time: time::Inst
     println!("----------------------");
     let duration = time::Instant::now() - start_time;
     println!("Run took: {:?}", duration);
+}
+
+fn print_results(counts: sync::Arc<sync::Mutex<Counter>>, start_time: time::Instant) {
+    let counts = counts.lock().unwrap();
+    let duration = time::Instant::now() - start_time;
+    println!(
+        "SIGHUP Report: requeted={} success={} failed={} errors={} processed={} for={:?} ...continuing.",
+        counts.requested, counts.success, counts.fail, counts.error, counts.processed, duration,
+    );
+}
+
+fn hup_waiter(
+    counter: sync::Arc<sync::Mutex<Counter>>,
+    start_time: time::Instant,
+) -> Result<(), Box<dyn error::Error>> {
+    let sighup = sync::Arc::new(AtomicBool::new(false));
+    flag::register(signal_hook::consts::SIGHUP, sync::Arc::clone(&sighup))?;
+
+    let counts = counter.clone();
+    thread::spawn(move || {
+        while !sighup.load(atomic::Ordering::Relaxed) {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        print_results(counts, start_time);
+        // Reset to continue waiting
+
+        let _ = hup_waiter(counter, start_time);
+    });
+
+    return Ok(());
 }
