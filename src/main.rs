@@ -1,31 +1,33 @@
+#[macro_use]
+mod utils;
 mod client;
 mod config;
 
-#[macro_use]
-mod utils;
+use config::Config;
 
 use clap::Parser;
+use scoped_pool::Pool;
+use signal_hook::flag;
+use std::error;
+use std::sync;
+use std::sync::atomic;
+use std::sync::atomic::AtomicBool;
+use std::thread;
+use std::time;
 
-//use signal_hook as signals;
-use std::sync::mpsc;
-use std::time::Instant;
+struct Counter {
+    requested: usize,
+    processed: usize,
+    success: usize,
+    fail: usize,
+    error: usize,
+}
 
-use client::*;
-use config::*;
-
-// -----
 static mut VERBOSE: bool = false;
 
-#[tokio::main]
-async fn main() -> Result<(), utils::Errors> {
-    let start_time = Instant::now();
-
-    let mut t: usize = 0;
-    let mut s: usize = 0;
-    let mut f: usize = 0;
-    let mut e: usize = 0;
-
-    let (sender, recv) = mpsc::channel();
+fn main() -> Result<(), Box<dyn error::Error>> {
+    let sigint = sync::Arc::new(AtomicBool::new(false));
+    flag::register(signal_hook::consts::SIGINT, sync::Arc::clone(&sigint))?;
 
     let config: Config = Config::parse();
     if !config.is_valid() {
@@ -38,102 +40,105 @@ async fn main() -> Result<(), utils::Errors> {
     set_verbose!(config.verbose);
 
     let configs = config.to_vector()?;
-    let expect: usize = configs.clone().into_iter().map(|c| c.iterations).sum();
+    let requested: usize = configs.clone().into_iter().map(|c| c.iterations).sum();
+    let threadpool = Pool::new(config.pool_size);
 
-    // TODO: Signal handlers aren't sending values when catching SIGINT, commenting it out for now.
-    // let mut sigs =
-    //     signals::iterator::Signals::new(&[signals::consts::SIGINT, signals::consts::SIGHUP])
-    //         .expect("Error setting up signal handler.");
+    let counter = sync::Arc::new(sync::Mutex::new(Counter {
+        requested: requested,
+        processed: 0,
+        success: 0,
+        fail: 0,
+        error: 0,
+    }));
 
-    // let sig_send = sender.clone();
-    // std::thread::spawn(move || {
-    //     for sig in sigs.forever() {
-    //         if sig == signals::consts::SIGINT {
-    //             println!("Received signal {:?}", sig);
-    //             let _ = sig_send.send((expect, 0, 0, 0));
-    //             break;
-    //         }
-    //     }
-    // });
+    let (count_tx, count_rx) = sync::mpsc::channel();
+    let (kill_tx, kill_rx) = sync::mpsc::channel();
 
-    for c in configs {
-        let send = sender.clone();
-        tokio::spawn(async move {
-            let h = c.clone().headers;
-            let client = Client::new(&c.method, &c.endpoint, h, c.iterations, c.sleep());
+    let start_time = time::Instant::now();
+    // TODO: Pretty print.
+    println!("Starting noop-client with {:?}", config);
+    for config in configs {
+        for _ in 0..config.iterations {
+            let shared_counter = sync::Arc::clone(&counter);
+            let config = config.clone();
 
-            // ( t, s, f, e )
-            let mut re: (usize, usize, usize, usize) = (0, 0, 0, 0);
+            let count_tx = count_tx.clone();
+            threadpool.spawn(move || {
+                let _ = count_tx.send(1);
+                let mut locked_counter = shared_counter.lock().unwrap();
 
-            if client.is_err() {
-                eprintln!(
-                    "Warning: skipping '{:?}', due to '{:?}'",
-                    c,
-                    client.unwrap_err()
-                );
-                let _ = send.send((1, 0, 0, 1)); // continue
-            } else {
-                let c = client.unwrap();
-                let resp = c.run().await;
-
-                for r in resp {
-                    match r {
-                        Ok(r) => {
-                            let code = r.status().as_u16();
-                            debug!(format!(
-                                "code={:} method={} path={:}",
-                                code, c.method, c.endpoint,
-                            ));
-                            if code >= 200 && code < 300 {
-                                re.1 += 1;
-                            } else {
-                                re.2 += 1;
-                            }
-                        }
-                        Err(err) => {
-                            debug!(format!(
-                                "method={} path={:} error='{:?}'",
-                                c.method, c.endpoint, err
-                            ));
-                            re.3 += 1;
-                        }
-                    }
-                    re.0 += 1;
+                if config.sleep() > time::Duration::ZERO {
+                    thread::sleep(config.sleep());
                 }
 
-                let _ = send.send(re);
-            }
-        });
-    }
+                let (method, endpoint, headers) = (config.method, config.endpoint, config.headers);
+                let client = client::Client::new(method.clone(), endpoint.clone(), headers.clone());
+                if client.is_err() {
+                    locked_counter.error += 1;
+                    eprintln!(
+                        "Failed to create client method='{}', endpoint='{}', headers='{:?}'",
+                        method, endpoint, headers,
+                    );
+                    return;
+                }
 
-    while t < expect {
-        match recv.recv() {
-            Ok(re) => {
-                t += re.0;
-                s += re.1;
-                f += re.2;
-                e += re.3;
-            }
-            Err(_) => {
-                // force exit
-                t = expect;
-            }
+                match client.unwrap().execute() {
+                    Ok(code) => {
+                        if code >= 200 || code < 300 {
+                            locked_counter.success += 1;
+                        } else {
+                            locked_counter.fail += 1;
+                        }
+                    }
+                    Err(_) => {
+                        locked_counter.error += 1;
+                    }
+                }
+                locked_counter.processed += 1;
+            });
         }
     }
 
-    print_results(t, s, f, e, start_time);
+    let kill = kill_tx.clone();
+    thread::spawn(move || {
+        while !sigint.load(atomic::Ordering::Relaxed) {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
 
-    Ok(())
+        println!("SIGINT called, shutting down...");
+        let _ = kill.send(true);
+    });
+
+    let kill = kill_tx.clone();
+    thread::spawn(move || {
+        let mut count: usize = 0;
+        while count < requested {
+            if let Ok(_) = count_rx.recv() {
+                count += 1;
+            }
+        }
+        let _ = kill.send(true);
+    });
+
+    if let Ok(_) = kill_rx.recv() {
+        print_results(counter, start_time);
+    }
+
+    return Ok(());
 }
 
-fn print_results(t: usize, s: usize, f: usize, e: usize, start_time: Instant) {
+// TODO: Support printing on SIGHUB
+fn print_results(counts: sync::Arc<sync::Mutex<Counter>>, start_time: time::Instant) {
+    let counts = counts.lock().unwrap();
     println!("-------------------------");
-    println!("  Requests sent: {:?}", t);
+    println!("      Requested: {:?}", counts.requested);
     println!("-------------------------");
-    println!("        success: {:?}", s);
-    println!("        failure: {:?}", f);
-    println!("         errors: {:?}", e);
+    println!("        success: {:?}", counts.success);
+    println!("        failure: {:?}", counts.fail);
+    println!("         errors: {:?}", counts.error);
     println!("----------------------");
-    let duration = Instant::now() - start_time;
+    println!("      Processed: {:?}", counts.processed);
+    println!("----------------------");
+    let duration = time::Instant::now() - start_time;
     println!("Run took: {:?}", duration);
 }

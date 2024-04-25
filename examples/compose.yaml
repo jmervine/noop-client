@@ -1,0 +1,52 @@
+services:
+  noop_server0: &noop_server
+    image: jmervine/noop-server:latest
+    environment:
+    - ADDR=0.0.0.0
+    - PORT=3001
+    ports:
+    - "3001"
+
+  noop_server1:
+    image: jmervine/noop-server:latest
+    environment:
+    - ADDR=0.0.0.0
+    - PORT=3002
+    ports:
+    - "3002"
+
+  noop_server2:
+    image: jmervine/noop-server:latest
+    environment:
+    - ADDR=0.0.0.0
+    - PORT=3003
+    ports:
+    - "3003"
+
+  noop_server3:
+    image: jmervine/noop-server:latest
+    environment:
+    - ADDR=0.0.0.0
+    - PORT=3004
+    ports:
+    - "3004"
+
+  nginx_proxy:
+    image: nginx:latest
+    volumes:
+    - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      #- ./logs:/var/log/nginx
+    environment:
+    - NGINX_PORT=80
+    links:
+      - "noop_server0"
+      - "noop_server1"
+      - "noop_server2"
+      - "noop_server3"
+    ports:
+    - "3000:80"
+    depends_on:
+    - noop_server0
+    - noop_server1
+    - noop_server2
+    - noop_server3
