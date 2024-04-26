@@ -1,4 +1,5 @@
 # noop-client
+> #### 2024-04-25 Master is not currently working
 > **This is my first attempt at working in [Rust](https://www.rust-lang.org/). Feedback
 > welcome through a comment in [Discussions > Feedback Discussion](https://github.com/jmervine/noop-client/discussions/6).**
 
