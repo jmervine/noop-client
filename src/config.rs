@@ -1,6 +1,6 @@
-use std::error;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
+use std::{error, thread, time};
 
 use clap::Parser;
 
@@ -47,15 +47,37 @@ pub struct Config {
         default_missing_value = "true"
     )]
     pub verbose: bool,
+
+    /// Enable debug output
+    #[arg(
+        long = "debug",
+        short = 'D',
+        default_value = "false",
+        default_missing_value = "true"
+    )]
+    pub debug: bool,
 }
 
 impl Config {
+    pub fn new() -> Result<Self, Box<dyn error::Error>> {
+        let config = Config::parse();
+
+        if config.is_valid() {
+            return Ok(config);
+        }
+
+        return Err(format!("Configuration is invalid, see '--help' for details.").into());
+    }
+
     pub fn is_valid(&self) -> bool {
         return !(self.endpoint.is_empty() && self.script.is_empty());
     }
 
-    pub fn sleep(&self) -> std::time::Duration {
-        return std::time::Duration::from_millis(self.sleep);
+    pub fn sleep(&self) {
+        let sleep = std::time::Duration::from_millis(self.sleep);
+        if sleep > time::Duration::ZERO {
+            thread::sleep(sleep);
+        }
     }
 
     fn has_file(&self) -> bool {
@@ -166,92 +188,87 @@ impl Config {
 }
 
 // ---
-mod test {
-    // For some reason this doesn't show as being used, even though it is.
-    #[allow(unused_imports)]
-    use super::*;
-
-    // For some reason this doesn't show as being used, even though it is.
-    #[allow(unused)]
-    fn config() -> Config {
-        Config {
-            endpoint: "http://www.example.com".to_string(),
-            method: "GET".to_string(),
-            headers: vec!["foo=bar".to_string()],
-            script: "".to_string(),
-            sleep: 0,
-            verbose: false,
-            iterations: 1,
-            pool_size: 1,
-        }
+// For some reason this doesn't show as being used, even though it is.
+#[allow(unused)]
+fn config() -> Config {
+    Config {
+        endpoint: "http://www.example.com".to_string(),
+        method: "GET".to_string(),
+        headers: vec!["foo=bar".to_string()],
+        script: "".to_string(),
+        sleep: 0,
+        verbose: false,
+        debug: false,
+        iterations: 1,
+        pool_size: 1,
     }
+}
 
-    #[test]
-    fn is_valid_test() {
-        let mut c = config();
-        assert!(c.is_valid());
+#[test]
+fn is_valid_test() {
+    let mut c = config();
+    assert!(c.is_valid());
 
-        c.endpoint = String::new();
-        assert!(!c.is_valid());
+    c.endpoint = String::new();
+    assert!(!c.is_valid());
 
-        c.script = "file.txt".to_string();
-        assert!(c.is_valid());
-    }
+    c.script = "file.txt".to_string();
+    assert!(c.is_valid());
+}
 
-    #[test]
-    fn endpoint_test() {
-        let mut c = config();
-        assert_eq!(c.endpoint, "http://www.example.com".to_string());
+#[test]
+fn endpoint_test() {
+    let mut c = config();
+    assert_eq!(c.endpoint, "http://www.example.com".to_string());
 
-        c.endpoint = String::new();
-        assert_eq!(c.endpoint, "".to_string());
-    }
+    c.endpoint = String::new();
+    assert_eq!(c.endpoint, "".to_string());
+}
 
-    #[test]
-    fn script_test() {
-        let mut c = config();
-        assert_eq!(c.script, "".to_string());
+#[test]
+fn script_test() {
+    let mut c = config();
+    assert_eq!(c.script, "".to_string());
 
-        c.script = "file.txt".to_string();
-        assert_eq!(c.script, "file.txt".to_string());
-    }
+    c.script = "file.txt".to_string();
+    assert_eq!(c.script, "file.txt".to_string());
+}
 
-    #[test]
-    fn has_file_test() {
-        let mut c = config();
+#[test]
+fn has_file_test() {
+    let mut c = config();
 
-        assert!(!c.has_file()); // with none
+    assert!(!c.has_file()); // with none
 
-        c.script = "this_should_never_exist.ack".to_string();
-        assert!(!c.has_file()); // with invalid file
+    c.script = "this_should_never_exist.ack".to_string();
+    assert!(!c.has_file()); // with invalid file
 
-        // Fragile - assume project root
-        c.script = "test/test_script.txt".to_string();
-        assert!(c.has_file()); // with valid file
-    }
+    // Fragile - assume project root
+    c.script = "test/test_script.txt".to_string();
+    assert!(c.has_file()); // with valid file
+}
 
-    #[test]
-    fn to_vector_test() {
-        let c = config();
+#[test]
+fn to_vector_test() {
+    let c = config();
 
-        // with no file
-        let v = c.to_vector();
-        assert!(!v.is_err());
+    // with no file
+    let v = c.to_vector();
+    assert!(!v.is_err());
 
-        let v = v.unwrap().clone();
-        assert_eq!(v.len(), 1);
-        assert_eq!(v[0].method, "GET".to_string());
-    }
+    let v = v.unwrap().clone();
+    assert_eq!(v.len(), 1);
+    assert_eq!(v[0].method, "GET".to_string());
+}
 
-    #[test]
-    fn verbose_test() {
-        let mut c = config();
-        assert!(!c.verbose);
+#[test]
+fn verbose_test() {
+    let mut c = config();
+    assert!(!c.verbose);
 
-        c.verbose = false;
-        assert!(!c.verbose);
+    c.verbose = false;
+    assert!(!c.verbose);
 
-        c.verbose = true;
-        assert!(c.verbose);
-    }
+    c.verbose = true;
+    assert!(c.verbose);
 }

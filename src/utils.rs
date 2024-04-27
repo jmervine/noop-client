@@ -2,17 +2,8 @@
 // if needed
 
 // -- macros
+/*
 pub(crate) mod macros {
-    #[macro_export]
-    macro_rules! exit {
-        ($m:expr) => {{
-            if !$m.is_empty() {
-                println!("{}", $m);
-            }
-            std::process::exit(0)
-        }};
-    }
-
     #[macro_export]
     macro_rules! is_verbose {
         () => {
@@ -59,33 +50,32 @@ pub(crate) mod macros {
         };
     }
 
-    mod test {
-        #[test]
-        fn is_verbose_test() {
-            unsafe {
-                crate::VERBOSE = false;
-            }
-            assert!(!is_verbose!(), "'is_verbose()' should return false");
-
-            unsafe {
-                crate::VERBOSE = true;
-            }
-            assert!(is_verbose!(), "'is_verbose()' should return true");
+    #[test]
+    fn is_verbose_test() {
+        unsafe {
+            crate::VERBOSE = false;
         }
+        assert!(!is_verbose!(), "'is_verbose()' should return false");
 
-        #[test]
-        fn set_verbose_test() {
-            unsafe {
-                crate::VERBOSE = false;
-            }
-            set_verbose!(true);
-            assert!(unsafe { crate::VERBOSE }, "should return true");
-
-            unsafe {
-                crate::VERBOSE = true;
-            }
-            set_verbose!(false);
-            assert!(!unsafe { crate::VERBOSE }, "should return false");
+        unsafe {
+            crate::VERBOSE = true;
         }
+        assert!(is_verbose!(), "'is_verbose()' should return true");
+    }
+
+    #[test]
+    fn set_verbose_test() {
+        unsafe {
+            crate::VERBOSE = false;
+        }
+        set_verbose!(true);
+        assert!(unsafe { crate::VERBOSE }, "should return true");
+
+        unsafe {
+            crate::VERBOSE = true;
+        }
+        set_verbose!(false);
+        assert!(!unsafe { crate::VERBOSE }, "should return false");
     }
 }
+*/
