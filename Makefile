@@ -3,6 +3,7 @@ BIN := noop-client
 VERBOSE ?= false
 ARGS ?= --endpoint http://localhost:3000/default --headers "X-Test-1:makefile1" \
 			--headers "X-Test-2:makefile2" -n 15 --verbose=$(VERBOSE)
+VERSION ?= $(shell cat Cargo.toml | grep version | head -n 1 | awk -F '"' '{print "v"$$2}')
 
 .PHONY: default
 default: format check test run_help run run_args run_script
@@ -65,3 +66,15 @@ todos:
 .PHONY: docker
 docker:
 	docker build . -t jmervine/noop-client:latest
+	docker tag jmervine/noop-server:latest jmervine/noop-server:$(shell git reflog | head -n1 | cut -d' ' -f1)
+
+.PHONY: tag
+tag:
+	git tag $(VERSION)
+	docker tag jmervine/noop-client:latest jmervine/noop-client:$(VERSION)
+
+.PHONY: release
+release: docker tag
+	git push --tags
+	docker push jmervine/noop-client:latest
+	docker push jmervine/noop-client:$(VERSION)
