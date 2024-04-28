@@ -1,5 +1,3 @@
-#[macro_use]
-mod utils;
 mod client;
 mod config;
 mod state;
