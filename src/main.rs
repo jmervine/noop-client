@@ -81,7 +81,15 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                             state.1 = 1;
                         }
                     }
-                    Err(_) => state.2 = 1,
+                    Err(err) => {
+                        state.2 = 1;
+                        if config.errors {
+                            eprintln!(
+                                "method={} endpoint='{}' error='{}'",
+                                &client.method, &client.endpoint, err,
+                            )
+                        }
+                    }
                 }
 
                 let _ = state_tx.send(state);

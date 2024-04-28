@@ -8,8 +8,8 @@ static SPLIT_HEADER_VALUE_CHAR: [char; 2] = [':', '='];
 
 #[derive(Debug, Clone)]
 pub struct Client {
-    method: reqwest::Method,
-    endpoint: reqwest::Url,
+    pub method: reqwest::Method,
+    pub endpoint: reqwest::Url,
     headers: header::HeaderMap,
     debug: bool,
 }

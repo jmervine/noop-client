@@ -56,6 +56,15 @@ pub struct Config {
         default_missing_value = "true"
     )]
     pub debug: bool,
+
+    /// Enable error output for requests
+    #[arg(
+        long = "errors",
+        short = 'E',
+        default_value = "false",
+        default_missing_value = "true"
+    )]
+    pub errors: bool,
 }
 
 impl Config {
@@ -199,6 +208,7 @@ fn config() -> Config {
         sleep: 0,
         verbose: false,
         debug: false,
+        errors: false,
         iterations: 1,
         pool_size: 1,
     }
