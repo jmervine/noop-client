@@ -31,6 +31,7 @@ Options:
   -p, --pool-size <POOL_SIZE>    Number of parallel requests [default: 100]
   -v, --verbose                  Enable verbose output
   -D, --debug                    Enable debug output
+  -E, --errors                   Enable error output for requests
   -h, --help                     Print help
   -V, --version                  Print version
 ```
