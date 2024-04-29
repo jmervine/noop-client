@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader};
+use std::io;
 use std::{error, thread, time};
 
 use clap::Parser;
@@ -110,7 +110,7 @@ impl Config {
         }
 
         let content = File::open(self.script.clone())?;
-        let lines = BufReader::new(content).lines();
+        let lines = io::BufRead::lines(io::BufReader::new(content));
 
         for (idx, line) in lines.enumerate() {
             let line = line?;
@@ -199,7 +199,7 @@ impl Config {
 // ---
 // For some reason this doesn't show as being used, even though it is.
 #[allow(unused)]
-fn config() -> Config {
+fn test_config() -> Config {
     Config {
         endpoint: "http://www.example.com".to_string(),
         method: "GET".to_string(),
@@ -216,7 +216,7 @@ fn config() -> Config {
 
 #[test]
 fn is_valid_test() {
-    let mut c = config();
+    let mut c = test_config();
     assert!(c.is_valid());
 
     c.endpoint = String::new();
@@ -228,7 +228,7 @@ fn is_valid_test() {
 
 #[test]
 fn endpoint_test() {
-    let mut c = config();
+    let mut c = test_config();
     assert_eq!(c.endpoint, "http://www.example.com".to_string());
 
     c.endpoint = String::new();
@@ -237,7 +237,7 @@ fn endpoint_test() {
 
 #[test]
 fn script_test() {
-    let mut c = config();
+    let mut c = test_config();
     assert_eq!(c.script, "".to_string());
 
     c.script = "file.txt".to_string();
@@ -246,7 +246,7 @@ fn script_test() {
 
 #[test]
 fn has_file_test() {
-    let mut c = config();
+    let mut c = test_config();
 
     assert!(!c.has_file()); // with none
 
@@ -260,7 +260,7 @@ fn has_file_test() {
 
 #[test]
 fn to_vector_test() {
-    let c = config();
+    let c = test_config();
 
     // with no file
     let v = c.to_vector();
@@ -273,7 +273,7 @@ fn to_vector_test() {
 
 #[test]
 fn verbose_test() {
-    let mut c = config();
+    let mut c = test_config();
     assert!(!c.verbose);
 
     c.verbose = false;
