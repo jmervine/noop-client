@@ -1,6 +1,5 @@
-use reqwest;
-use reqwest::header;
 use std::error;
+use ureq;
 
 use crate::config;
 
@@ -8,21 +7,24 @@ static SPLIT_HEADER_VALUE_CHAR: [char; 2] = [':', '='];
 
 #[derive(Debug, Clone)]
 pub struct Client {
-    pub method: reqwest::Method,
-    pub endpoint: reqwest::Url,
-    headers: header::HeaderMap,
+    pub method: String,
+    pub endpoint: String,
+    headers: Vec<(String, String)>,
     debug: bool,
 }
 
 impl Client {
     pub fn new(config: config::Config) -> Result<Client, Box<dyn error::Error>> {
-        let method = reqwest::Method::from_bytes(config.method.as_bytes())?;
-        let endpoint = reqwest::Url::parse(&config.endpoint)?;
-        let headers = header_map(config.headers)?;
+        let mut headers = Vec::<(String, String)>::new();
+
+        for header in config.headers {
+            let header = header.to_header()?;
+            headers.push(header);
+        }
 
         return Ok(Client {
-            method: method,
-            endpoint: endpoint,
+            method: config.method,
+            endpoint: config.endpoint,
             headers: headers,
             debug: config.debug,
         });
@@ -30,50 +32,26 @@ impl Client {
 
     // Only returning status code or error right now.
     pub fn execute(&self) -> Result<u16, Box<dyn error::Error>> {
-        let client = reqwest::blocking::Client::new();
-        let mut request = client.request(self.method.clone(), self.endpoint.clone());
+        let client = ureq::agent();
 
-        for (key, value) in self.headers.clone() {
-            if let Some(key) = key {
-                request = request.header(key, value);
-            }
+        let mut request = client.request(&self.method, &self.endpoint);
+
+        for (key, val) in &self.headers {
+            request = request.set(key, val);
         }
-
-        let request = request.build()?;
 
         if self.debug {
             println!("DEBUG:: {:?}", request);
         }
 
-        let response = client.execute(request)?;
+        let response = request.call()?;
 
         if self.debug {
             println!("DEBUG:: {:?}", response);
         }
 
-        return Ok(response.status().as_u16());
+        return Ok(response.status());
     }
-}
-
-fn header_map(headers: Vec<String>) -> Result<header::HeaderMap, Box<dyn error::Error>> {
-    let mut map = header::HeaderMap::new();
-    if headers.is_empty() {
-        return Ok(map);
-    }
-
-    for header in headers {
-        if header != "" {
-            let (key, val) = header.to_header()?;
-            if !key.is_empty() && !val.is_empty() {
-                let key = header::HeaderName::from_bytes(key.as_bytes())?;
-                let val = header::HeaderValue::from_bytes(val.as_bytes())?;
-
-                map.append(key, val);
-            }
-        }
-    }
-
-    return Ok(map);
 }
 
 pub trait HeaderStringSplit {
