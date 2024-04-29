@@ -1,7 +1,6 @@
+use crate::config;
 use std::error;
 use ureq;
-
-use crate::config;
 
 static SPLIT_HEADER_VALUE_CHAR: [char; 2] = [':', '='];
 
@@ -84,6 +83,33 @@ fn delim_in(string: String) -> char {
         }
     }
     return current_char;
+}
+
+#[test]
+fn client_new_test() {
+    let mut cfg = config::Config {
+        headers: vec!["Foo=bar".to_string(), "Bah:boo".to_string()],
+        method: "GET".to_string(),
+        endpoint: "http://localhost:3000".to_string(),
+        script: String::new(),
+        iterations: 1,
+        sleep: 0,
+        pool_size: 1,
+        verbose: false,
+        debug: false,
+        errors: false,
+    };
+
+    let cli = Client::new(cfg.clone());
+    assert!(!cli.is_err());
+
+    let cli = cli.unwrap();
+    assert_eq!(cli.headers[0], ("Foo".to_string(), "bar".to_string()));
+    assert_eq!(cli.headers[1], ("Bah".to_string(), "boo".to_string()));
+
+    cfg.headers = vec!["=ack".to_string()];
+    let cli = Client::new(cfg);
+    assert!(cli.is_err());
 }
 
 #[test]
