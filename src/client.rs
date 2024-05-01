@@ -1,5 +1,5 @@
 use crate::config;
-use std::error;
+use crate::errors::ClientError;
 use ureq;
 
 static SPLIT_HEADER_VALUE_CHAR: [char; 2] = [':', '='];
@@ -13,12 +13,14 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(config: config::Config) -> Result<Client, Box<dyn error::Error>> {
+    pub fn new(config: config::Config) -> Result<Client, ClientError> {
         let mut headers = Vec::<(String, String)>::new();
 
         for header in config.headers {
             let header = header.to_header()?;
-            headers.push(header);
+            if header.0 != "" {
+                headers.push(header);
+            }
         }
 
         return Ok(Client {
@@ -30,7 +32,7 @@ impl Client {
     }
 
     // Only returning status code or error right now.
-    pub fn execute(&self) -> Result<u16, Box<dyn error::Error>> {
+    pub fn execute(&self) -> Result<u16, ClientError> {
         let client = ureq::agent();
 
         let mut request = client.request(&self.method, &self.endpoint);
@@ -43,31 +45,45 @@ impl Client {
             println!("DEBUG:: {:?}", request);
         }
 
-        let response = request.call()?;
-
-        if self.debug {
-            println!("DEBUG:: {:?}", response);
+        match request.call() {
+            Ok(response) => {
+                if self.debug {
+                    println!("DEBUG:: {:?}", response);
+                }
+                return Ok(response.status());
+            }
+            Err(err) => return Err(ClientError::HTTPError(err.to_string())),
         }
-
-        return Ok(response.status());
     }
 }
 
 pub trait HeaderStringSplit {
-    fn to_header(self) -> Result<(String, String), Box<dyn std::error::Error>>;
+    fn to_header(self) -> Result<(String, String), ClientError>;
 }
 
 impl HeaderStringSplit for String {
-    fn to_header(self) -> Result<(String, String), Box<dyn std::error::Error>> {
+    fn to_header(self) -> Result<(String, String), ClientError> {
+        if self.is_empty() {
+            return Ok((String::new(), String::new()));
+        }
+
         let delim: char = delim_in(self.clone());
         match self.split_once(delim) {
             Some((name, value)) => {
                 if name == "" {
-                    return Err(format!("Name cannot be empty in '{}'", self).into());
+                    return Err(ClientError::HeaderError(format!(
+                        "Name cannot be empty in '{}'",
+                        self
+                    )));
                 }
                 return Ok((name.to_string(), value.to_string()));
             }
-            None => return Err(format!("Header values cannot be empty in '{}'", self).into()),
+            None => {
+                return Err(ClientError::HeaderError(format!(
+                    "Header values cannot be empty in '{}'",
+                    self
+                )))
+            }
         }
     }
 }
@@ -127,5 +143,5 @@ fn to_header_from_string_test() {
     assert!(fine.is_ok());
     assert_eq!(fine.unwrap(), ("foo".to_string(), "".to_string()));
     assert!(ugly.is_err());
-    assert!(none.is_err());
+    assert!(none.is_ok());
 }

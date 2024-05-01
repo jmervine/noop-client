@@ -1,6 +1,7 @@
+use crate::errors::ClientError;
 use std::fs::{self, File};
 use std::io;
-use std::{error, thread, time};
+use std::{thread, time};
 
 use clap::Parser;
 
@@ -68,14 +69,16 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new() -> Result<Self, Box<dyn error::Error>> {
+    pub fn new() -> Result<Self, ClientError> {
         let config = Config::parse();
 
         if config.is_valid() {
             return Ok(config);
         }
 
-        return Err(format!("Configuration is invalid, see '--help' for details.").into());
+        return Err(ClientError::ConfigError(format!(
+            "Configuration is invalid, see '--help' for details."
+        )));
     }
 
     pub fn is_valid(&self) -> bool {
@@ -101,7 +104,7 @@ impl Config {
         return true;
     }
 
-    pub fn to_vector(&self) -> Result<Vec<Config>, Box<dyn error::Error>> {
+    pub fn to_vector(&self) -> Result<Vec<Config>, ClientError> {
         let mut configs: Vec<Config> = vec![];
 
         if !self.has_file() {
@@ -109,11 +112,22 @@ impl Config {
             return Ok(configs);
         }
 
-        let content = File::open(self.script.clone())?;
+        let content = File::open(self.script.clone());
+        if content.is_err() {
+            return Err(ClientError::ConfigError(content.unwrap_err().to_string()));
+        }
+
+        let content = content.unwrap();
+
         let lines = io::BufRead::lines(io::BufReader::new(content));
 
         for (idx, line) in lines.enumerate() {
-            let line = line?;
+            if line.is_err() {
+                return Err(ClientError::ConfigError(line.unwrap_err().to_string()));
+            }
+
+            let line = line.unwrap();
+
             if line.is_empty() || line.starts_with("#") {
                 continue;
             }
@@ -123,11 +137,10 @@ impl Config {
             // Find the number of '|' characters (+1) to to match the number of fields (to be clear)
             let pipe_count = line.chars().filter(|&c| c == '|').count() + 1;
             if pipe_count != 5 {
-                return Err(format!(
+                return Err(ClientError::ConfigError(format!(
                     "Found {} of 5 expected fields in '{}' for file:'{}', entry:'{}'",
                     pipe_count, line, self.script, idx
-                )
-                .into());
+                )));
             }
 
             let mut parts = line.split(SPLIT_SCRIPT_CHAR).map(|p| p.to_string());
@@ -154,11 +167,10 @@ impl Config {
             }
 
             if new.endpoint.is_empty() {
-                return Err(format!(
+                return Err(ClientError::ConfigError(format!(
                     "Empty endpoint without a default in '{}' for file:'{}', entry:'{}'",
                     line, self.script, idx
-                )
-                .into());
+                )));
             }
 
             // Fetch for headers, or use default from 'new'
@@ -175,10 +187,10 @@ impl Config {
                             new.sleep = sleep;
                         }
                         Err(_) => {
-                            return Err(format!(
+                            return Err(ClientError::ConfigError(format!(
                                 "Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'",
                                 sleep, line, self.script, idx
-                            ).into());
+                            )));
                         }
                     }
                 }
@@ -186,7 +198,9 @@ impl Config {
 
             // panic if not valid
             if !new.is_valid() {
-                return Err("Invalid configurations, see help for details.".into());
+                return Err(ClientError::ConfigError(
+                    "Invalid configurations, see help for details.".to_string(),
+                ));
             }
 
             configs.push(new);
