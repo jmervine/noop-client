@@ -1,12 +1,16 @@
 mod client;
 mod config;
+mod errors;
 mod state;
 mod threadpool;
 
-use std::error;
-use std::sync;
+use crate::errors::ClientError;
 
-fn main() -> Result<(), Box<dyn error::Error>> {
+use std::sync;
+use std::thread;
+use std::time;
+
+fn main() -> Result<(), ClientError> {
     // Set up configuration
     let config = config::Config::new()?;
 
@@ -18,7 +22,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let requested: usize = requests.clone().into_iter().map(|c| c.iterations).sum();
 
     // Housekeeping pool for state and signals.
-    let housekeeping = threadpool::ThreadPool::new(2);
+    let housekeeping = threadpool::ThreadPool::new(1);
 
     // Set up workers pool for executing requests.
     let workers = threadpool::ThreadPool::new(config.pool_size);
@@ -42,6 +46,8 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         }
 
         if !config.verbose {
+            // Give time to finish writing other output
+            thread::sleep(time::Duration::from_millis(250));
             println!("{}", state.string());
         }
     });
@@ -52,6 +58,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
             let request = request.clone();
             let state_tx = state_tx.clone();
 
+            let config = config.clone();
             workers.execute(move || {
                 request.sleep();
 
@@ -63,8 +70,13 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                 if client.is_err() {
                     state.2 = 1;
                     let _ = state_tx.send(state);
-                    if config.debug {
-                        println!("DEBUG:: {:?}", client.unwrap_err());
+                    if config.errors {
+                        eprintln!(
+                            "method={} endpoint=\"{}\" error=\"{}\"",
+                            &config.method,
+                            &config.endpoint,
+                            client.unwrap_err(),
+                        )
                     }
                     return;
                 }
@@ -83,7 +95,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                         state.2 = 1;
                         if config.errors {
                             eprintln!(
-                                "method={} endpoint='{}' error='{}'",
+                                "method={} endpoint=\"{}\" error=\"{}\"",
                                 &client.method, &client.endpoint, err,
                             )
                         }
