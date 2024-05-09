@@ -40,6 +40,10 @@ pub struct Config {
     #[arg(long = "pool-size", short = 'p', default_value = "100")]
     pub pool_size: usize,
 
+    /// Output format
+    #[arg(long = "output", short = 'o', default_value = "default")]
+    pub output: String,
+
     /// Enable verbose output
     #[arg(
         long = "verbose",
@@ -225,6 +229,7 @@ fn test_config() -> Config {
         errors: false,
         iterations: 1,
         pool_size: 1,
+        output: "default".to_string(),
     }
 }
 

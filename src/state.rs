@@ -1,7 +1,15 @@
+use serde_derive::Serialize;
 use std::sync;
 use std::time;
 
+// enum OutputType {
+//     Default,
+//     Json,
+//     Csv,
+// }
+
 pub struct State {
+    //output: OutputType,
     start: time::Instant,
     requested: usize,
     processed: usize,
@@ -12,8 +20,28 @@ pub struct State {
     mux: sync::Mutex<()>,
 }
 
+#[derive(Serialize)]
+pub struct StateSerialize {
+    took: time::Duration,
+    requested: usize,
+    processed: usize,
+    success: usize,
+    fail: usize,
+    error: usize,
+}
+
 impl State {
     pub fn new(r: usize) -> Self {
+        //pub fn new(r: usize, output: String) -> Self {
+        // let mut t_output = OutputType::Default;
+
+        // // Tried making this a match and it didn't work, advice?
+        // if output == "json".to_string() {
+        //     t_output = OutputType::Json;
+        // } else if output == "csv".to_string() {
+        //     t_output = OutputType::Csv;
+        // }
+
         State {
             start: time::Instant::now(),
             requested: r,
@@ -23,6 +51,7 @@ impl State {
             error: 0,
             killed: false,
             mux: sync::Mutex::new(()),
+            // output: t_output,
         }
     }
 
@@ -52,10 +81,24 @@ impl State {
             self.requested, self.processed, self.success, self.fail, self.error, duration,
         );
     }
+
+    pub fn to_json(&self) -> String {
+        let output = StateSerialize {
+            took: time::Instant::now() - self.start,
+            requested: self.requested,
+            processed: self.processed,
+            success: self.success,
+            fail: self.fail,
+            error: self.error,
+        };
+
+        return serde_json::to_string(&output).expect("failed to seralize json");
+    }
 }
 
 #[test]
 fn increment_test() {
+    //let mut state = State::new(4, "default".to_string());
     let mut state = State::new(4);
     state.increment(1, 0, 0);
     state.increment(0, 1, 0);
@@ -68,6 +111,7 @@ fn increment_test() {
 
 #[test]
 fn done_test() {
+    //let mut state = State::new(1, "default".to_string());
     let mut state = State::new(1);
     assert!(!state.done());
     state.increment(1, 0, 0);
@@ -77,6 +121,7 @@ fn done_test() {
 #[test]
 fn string_test() {
     let expected = String::from("requested=4 processed=1 success=1 fail=0 error=0 duration=");
+    //let mut state = State::new(4, "default".to_string());
     let mut state = State::new(4);
     state.increment(1, 0, 0);
 

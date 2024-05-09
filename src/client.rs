@@ -114,6 +114,7 @@ fn client_new_test() {
         verbose: false,
         debug: false,
         errors: false,
+        output: "default".to_string(),
     };
 
     let cli = Client::new(cfg.clone());
