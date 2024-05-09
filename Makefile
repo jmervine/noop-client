@@ -1,8 +1,7 @@
 RUN := cargo run
 BIN := noop-client
-VERBOSE ?= false
 ARGS ?= --endpoint http://localhost:3000/default --headers "X-Test-1:makefile1" \
-			--headers "X-Test-2:makefile2" -n 15 --verbose=$(VERBOSE)
+			--headers "X-Test-2:makefile2" -n 15
 VERSION ?= $(shell cat Cargo.toml | grep version | head -n 1 | awk -F '"' '{print "v"$$2}')
 
 .PHONY: default
