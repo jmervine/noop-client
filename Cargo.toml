@@ -1,6 +1,6 @@
 [package]
 name = "noop-client"
-version = "1.1.1"
+version = "1.1.2"
 edition = "2021"
 
 [[bin]]
@@ -9,4 +9,8 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.5.4", features = ["error-context", "help", "std", "usage", "env", "string", "derive"] }
+csv = "1.3.0"
+serde = "1.0.201"
+serde_derive = "1.0.201"
+serde_json = "1.0.117"
 ureq = { version = "2.9.7", features = ["native-tls", "http-crate"] }

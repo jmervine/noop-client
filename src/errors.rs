@@ -5,6 +5,7 @@ pub enum ClientError {
     ConfigError(String),
     HTTPError(String),
     HeaderError(String),
+    StateParseError(String),
 }
 
 impl fmt::Display for ClientError {
@@ -13,6 +14,7 @@ impl fmt::Display for ClientError {
             ClientError::ConfigError(s) => return write!(f, "{}", s),
             ClientError::HTTPError(s) => return write!(f, "{}", s),
             ClientError::HeaderError(s) => return write!(f, "{}", s),
+            ClientError::StateParseError(s) => return write!(f, "{}", s),
         };
     }
 }

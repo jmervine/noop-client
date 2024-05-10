@@ -1,6 +1,9 @@
 use std::sync;
 use std::time;
 
+use csv;
+use serde_derive::Serialize;
+
 pub struct State {
     start: time::Instant,
     requested: usize,
@@ -10,6 +13,16 @@ pub struct State {
     error: usize,
     killed: bool,
     mux: sync::Mutex<()>,
+}
+
+#[derive(Serialize)]
+pub struct StateSerialize {
+    took: u128,
+    requested: usize,
+    processed: usize,
+    success: usize,
+    fail: usize,
+    error: usize,
 }
 
 impl State {
@@ -51,6 +64,30 @@ impl State {
             "requested={} processed={} success={} fail={} error={} duration={:?}",
             self.requested, self.processed, self.success, self.fail, self.error, duration,
         );
+    }
+
+    fn to_seralizer(&self) -> StateSerialize {
+        let took = time::Instant::now() - self.start;
+        return StateSerialize {
+            took: took.as_millis(),
+            requested: self.requested,
+            processed: self.processed,
+            success: self.success,
+            fail: self.fail,
+            error: self.error,
+        };
+    }
+
+    pub fn to_json(&self) -> String {
+        return serde_json::to_string(&self.to_seralizer()).expect("failed to seralize json");
+    }
+
+    pub fn to_csv(&self) -> Result<String, Box<dyn std::error::Error>> {
+        let mut wtrb = csv::WriterBuilder::new();
+        wtrb.has_headers(true);
+        let mut wtr = wtrb.from_writer(vec![]);
+        wtr.serialize(&self.to_seralizer())?;
+        return Ok(String::from_utf8(wtr.into_inner()?)?);
     }
 }
 

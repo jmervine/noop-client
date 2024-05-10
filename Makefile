@@ -27,6 +27,16 @@ run_script:
 	$(RUN) --bin $(BIN) -- --script=test/test_script.txt \
 		--endpoint=http://localhost:3000/default --verbose
 
+run_json:
+	# run with script file
+	$(RUN) --bin $(BIN) -- --script=test/test_script.txt \
+		--endpoint=http://localhost:3000/default --output=json
+
+run_csv:
+	# run with script file
+	$(RUN) --bin $(BIN) -- --script=test/test_script.txt \
+		--endpoint=http://localhost:3000/default --output=csv
+
 run_load: clean build
 	docker-compose -f ./examples/compose.yaml up -d
 	# Be patient, this will take a while...

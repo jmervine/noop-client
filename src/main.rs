@@ -30,7 +30,9 @@ fn main() -> Result<(), ClientError> {
     // Set up state
     let (state_tx, state_rx) = sync::mpsc::channel();
 
+    //let mut state = state::State::new(requested, config.output.clone());
     let mut state = state::State::new(requested);
+    let output = config.output.clone();
     housekeeping.execute(move || {
         while !state.done() {
             let (s, f, e, code, kill) = state_rx.recv().unwrap();
@@ -45,10 +47,19 @@ fn main() -> Result<(), ClientError> {
             }
         }
 
-        if !config.verbose {
+        if !config.verbose && output == "default" {
             // Give time to finish writing other output
             thread::sleep(time::Duration::from_millis(250));
             println!("{}", state.string());
+        } else if output == "json" {
+            println!("{}", state.to_json());
+        } else if output == "csv" {
+            match state.to_csv() {
+                Ok(csv) => println!("{}", csv),
+                Err(err) => {
+                    eprintln!("{}", ClientError::StateParseError(err.to_string()));
+                }
+            }
         }
     });
 
