@@ -4,14 +4,7 @@ use std::time;
 use csv;
 use serde_derive::Serialize;
 
-// enum OutputType {
-//     Default,
-//     Json,
-//     Csv,
-// }
-
 pub struct State {
-    //output: OutputType,
     start: time::Instant,
     requested: usize,
     processed: usize,
@@ -34,16 +27,6 @@ pub struct StateSerialize {
 
 impl State {
     pub fn new(r: usize) -> Self {
-        //pub fn new(r: usize, output: String) -> Self {
-        // let mut t_output = OutputType::Default;
-
-        // // Tried making this a match and it didn't work, advice?
-        // if output == "json".to_string() {
-        //     t_output = OutputType::Json;
-        // } else if output == "csv".to_string() {
-        //     t_output = OutputType::Csv;
-        // }
-
         State {
             start: time::Instant::now(),
             requested: r,
@@ -53,7 +36,6 @@ impl State {
             error: 0,
             killed: false,
             mux: sync::Mutex::new(()),
-            // output: t_output,
         }
     }
 
@@ -111,7 +93,6 @@ impl State {
 
 #[test]
 fn increment_test() {
-    //let mut state = State::new(4, "default".to_string());
     let mut state = State::new(4);
     state.increment(1, 0, 0);
     state.increment(0, 1, 0);
@@ -124,7 +105,6 @@ fn increment_test() {
 
 #[test]
 fn done_test() {
-    //let mut state = State::new(1, "default".to_string());
     let mut state = State::new(1);
     assert!(!state.done());
     state.increment(1, 0, 0);
@@ -134,7 +114,6 @@ fn done_test() {
 #[test]
 fn string_test() {
     let expected = String::from("requested=4 processed=1 success=1 fail=0 error=0 duration=");
-    //let mut state = State::new(4, "default".to_string());
     let mut state = State::new(4);
     state.increment(1, 0, 0);
 

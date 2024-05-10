@@ -7,6 +7,7 @@ use clap::Parser;
 
 static SPLIT_SCRIPT_CHAR: char = '|';
 static SPLIT_HEADER_CHAR: char = ';';
+static VALID_OUTPUTS: [&str; 3] = ["default", "json", "csv"];
 
 /// This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
 #[derive(Parser, Debug, Clone)]
@@ -40,7 +41,7 @@ pub struct Config {
     #[arg(long = "pool-size", short = 'p', default_value = "100")]
     pub pool_size: usize,
 
-    /// Output format
+    /// Output format; options: default, json, csv
     #[arg(long = "output", short = 'o', default_value = "default")]
     pub output: String,
 
@@ -86,7 +87,8 @@ impl Config {
     }
 
     pub fn is_valid(&self) -> bool {
-        return !(self.endpoint.is_empty() && self.script.is_empty());
+        return !(self.endpoint.is_empty() && self.script.is_empty())
+            && VALID_OUTPUTS.contains(&self.output.as_str());
     }
 
     pub fn sleep(&self) {
