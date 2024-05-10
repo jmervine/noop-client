@@ -51,10 +51,15 @@ fn main() -> Result<(), ClientError> {
             // Give time to finish writing other output
             thread::sleep(time::Duration::from_millis(250));
             println!("{}", state.string());
-        }
-
-        if output == "json" {
+        } else if output == "json" {
             println!("{}", state.to_json());
+        } else if output == "csv" {
+            match state.to_csv() {
+                Ok(csv) => println!("{}", csv),
+                Err(err) => {
+                    eprintln!("{}", ClientError::StateParseError(err.to_string()));
+                }
+            }
         }
     });
 
