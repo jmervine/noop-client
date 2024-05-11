@@ -15,8 +15,7 @@ These targets will give you some ideas on how to use it.
 
 ### Usage - help
 ```
-$ cargo run --bin noop-client -- --help
-#... build output omitted ...
+$ ./target/release/noop-client -h
 This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
 
 Usage: noop-client [OPTIONS]
@@ -29,23 +28,32 @@ Options:
   -n, --iterations <ITERATIONS>  Number of requests to make for each endpoint [default: 1]
   -s, --sleep <SLEEP>            Built in sleep duration (in milliseconds) to be used when making multiple requests [default: 0]
   -p, --pool-size <POOL_SIZE>    Number of parallel requests [default: 100]
+  -o, --output <OUTPUT>          Output format; options: default, json, csv [default: default]
   -v, --verbose                  Enable verbose output
   -D, --debug                    Enable debug output
   -E, --errors                   Enable error output for requests
   -h, --help                     Print help
   -V, --version                  Print version
+
 ```
 
 ### Usage - basic
 ```
-$ cargo run --bin noop-client -- --endpoint=https://www.example.com/
-requested=1 processed=1 success=1 fail=0 error=0 duration=172.016878ms
+$ ./target/release/noop-client  --endpoint=https://www.example.com/
+requested=1 processed=1 success=1 fail=0 error=0 duration=328.080207ms
+
+$ ./target/release/noop-client  --endpoint=https://www.example.com/ --output json
+{"took":66,"requested":1,"processed":1,"success":1,"fail":0,"error":0}
+
+$ ./target/release/noop-client  --endpoint=https://www.example.com/ --output csv
+took,requested,processed,success,fail,error
+53,1,1,1,0,0
 ```
 
 ### Usage - script file
 > Example uses https://github.com/jmervine/noop-server running in another window.
 ```
-echo "
+$ echo "
 # Comments (with '#' as the first char) and empty lines are ignored.
 # Format is '{iterations:-1}|{method:-GET}|{endpoint}|{headers:-}|{sleep:-0}
 6|GET|http://localhost:3000/request1|User-Agent:noop-client;X-Test:run1|100
@@ -62,20 +70,20 @@ echo "
 1|GET|bad_endpoint|X-Error:true|0
 " > script.txt
 
-$ cargo run --bin noop-client -- --script=test/test_script.txt --verbose
+./target/release/noop-client --script=test/test_script.txt --verbose
 ```
 
 output:
 ```
-code=0 requested=11 processed=1 success=0 fail=0 error=1 duration=303.719µs
-code=200 requested=11 processed=2 success=1 fail=0 error=1 duration=9.724475ms
-code=200 requested=11 processed=3 success=2 fail=0 error=1 duration=14.689436ms
-code=200 requested=11 processed=4 success=3 fail=0 error=1 duration=14.700042ms
-code=200 requested=11 processed=5 success=4 fail=0 error=1 duration=14.978201ms
-code=200 requested=11 processed=6 success=5 fail=0 error=1 duration=102.208715ms
-code=200 requested=11 processed=7 success=6 fail=0 error=1 duration=103.553627ms
-code=200 requested=11 processed=8 success=7 fail=0 error=1 duration=103.588955ms
-code=200 requested=11 processed=9 success=8 fail=0 error=1 duration=103.63929ms
-code=200 requested=11 processed=10 success=9 fail=0 error=1 duration=103.983384ms
-code=200 requested=11 processed=11 success=10 fail=0 error=1 duration=104.018584ms
+code=0 requested=11 processed=1 success=0 fail=0 error=1 duration=552.454µs
+code=200 requested=11 processed=2 success=1 fail=0 error=1 duration=3.384794ms
+code=200 requested=11 processed=3 success=2 fail=0 error=1 duration=11.218732ms
+code=200 requested=11 processed=4 success=3 fail=0 error=1 duration=11.91741ms
+code=200 requested=11 processed=5 success=4 fail=0 error=1 duration=11.951396ms
+code=200 requested=11 processed=6 success=5 fail=0 error=1 duration=105.801674ms
+code=200 requested=11 processed=7 success=6 fail=0 error=1 duration=105.827726ms
+code=200 requested=11 processed=8 success=7 fail=0 error=1 duration=107.065624ms
+code=200 requested=11 processed=9 success=8 fail=0 error=1 duration=108.019409ms
+code=200 requested=11 processed=10 success=9 fail=0 error=1 duration=108.097017ms
+code=200 requested=11 processed=11 success=10 fail=0 error=1 duration=108.215908ms
 ```
