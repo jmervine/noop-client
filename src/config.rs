@@ -9,13 +9,16 @@ use std::ffi;
 use std::path;
 
 use clap::Parser;
+use rand::Rng;
 use serde_derive::Deserialize;
 
 /// This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct Config {
-    /// Replace 'RANDOM' with a timestamp int in 'endpoint' or 'headers'
+    /// Randomize 'endpoint' or 'headers';
+    /// TIMESTAMP is replaced with a timestamp,
+    /// RANDOM is replaced with a random number
     #[arg(
         long = "random",
         short = 'r',
@@ -159,32 +162,22 @@ impl Config {
             return self.headers.clone();
         }
 
-        let now = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_millis()
-            .to_string();
-
         let mut headers: Vec<String> = Vec::with_capacity(self.headers.len());
         for header in self.headers.clone() {
-            headers.push(header.replace("RANDOM", &now));
+            headers.push(Config::randomize_string(header));
         }
 
         return headers;
     }
 
     pub fn endpoint(&self) -> String {
+        let endpoint = self.endpoint.clone();
+
         if !self.randomize {
-            return self.endpoint.clone();
+            return endpoint;
         }
 
-        let now = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
-            .expect("Time went backwards")
-            .as_millis()
-            .to_string();
-
-        return self.endpoint.replace("RANDOM", &now);
+        return Config::randomize_string(endpoint);
     }
 
     fn has_file(&self) -> bool {
@@ -251,6 +244,29 @@ impl Config {
         }
 
         return config;
+    }
+
+    fn now() -> String {
+        return time::SystemTime::now()
+            .duration_since(time::SystemTime::UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_millis()
+            .to_string();
+    }
+
+    fn randomize_string(mut s: String) -> String {
+        if s.contains("RANDOM") {
+            let rnd: u32 = rand::thread_rng().gen();
+
+            s = s.replace("RANDOM", &rnd.to_string());
+        }
+
+        if s.contains("TIMESTAMP") {
+            let now = Config::now();
+            s = s.replace("TIMESTAMP", &now);
+        }
+
+        return s;
     }
 
     fn from_csv(&self) -> Result<Vec<Config>, ClientError> {

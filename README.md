@@ -45,6 +45,7 @@ This is a (hopefully) simple method of sending http requests (kind of like curl)
 Usage: noop-client [OPTIONS]
 
 Options:
+  -r, --random                   Randomize 'endpoint' or 'headers'; TIMESTAMP is replaced with a timestamp, RANDOM is replaced with a random number
   -f, --script <SCRIPT>          File path containing a list of options to be used, in place of other arguments [default: ]
   -e, --endpoint <ENDPOINT>      Target endpoint to make an http requests against [default: ]
   -m, --method <METHOD>          Method to be used when making an http requests [default: GET]

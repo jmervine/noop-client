@@ -22,7 +22,9 @@ run_rand:
 	# ---------------------------------------------------------------------------- #
 	# run no args, except what's required
 	# -> show error to prove rand
-	$(RUN) --bin $(BIN) -- --endpoint=https://www.example.com/RANDOM/ -r -v -E
+	$(RUN) --bin $(BIN) -- -r -v -E \
+				--endpoint=https://www.example.com/TIMESTAMP/ \
+				--headers 'X-Random:RANDOM'
 
 .PHONY: run_args
 run_args:

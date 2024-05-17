@@ -8,7 +8,7 @@ static SPLIT_HEADER_VALUE_CHAR: [char; 2] = [':', '='];
 pub struct Client {
     pub method: String,
     pub endpoint: String,
-    headers: Vec<(String, String)>,
+    pub headers: Vec<(String, String)>,
     debug: bool,
 }
 
@@ -54,6 +54,16 @@ impl Client {
             }
             Err(err) => return Err(ClientError::HTTPError(err.to_string())),
         }
+    }
+
+    pub fn headers(&self) -> String {
+        let mut headers = Vec::with_capacity(self.headers.len());
+
+        for h in self.headers.clone() {
+            headers.push(format!("{}:{}", h.0, h.1));
+        }
+
+        return headers.join(";");
     }
 }
 

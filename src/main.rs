@@ -112,8 +112,11 @@ fn main() -> Result<(), ClientError> {
                         state.2 = 1;
                         if config.errors {
                             eprintln!(
-                                "method={} endpoint=\"{}\" error=\"{}\"",
-                                &client.method, &client.endpoint, err,
+                                "method={} headers=\"{}\" endpoint=\"{}\" error=\"{}\"",
+                                &client.method,
+                                &client.headers(),
+                                &client.endpoint,
+                                err,
                             )
                         }
                     }
