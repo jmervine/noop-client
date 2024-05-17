@@ -31,6 +31,8 @@ cargo install --features=all --path .
 ## Usage
 
 ### Docker example
+Source: https://hub.docker.com/r/jmervine/noop-client
+
 ```
 $ docker run --rm jmervine/noop-client:latest -e https://www.example.com/ -n 10 -s 100 -p 1
 ```
