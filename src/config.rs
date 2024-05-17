@@ -16,20 +16,9 @@ use serde_derive::Deserialize;
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct Config {
-    /// Randomize 'endpoint' or 'headers';
-    /// TIMESTAMP is replaced with a timestamp,
-    /// RANDOM is replaced with a random number
-    #[arg(
-        long = "random",
-        short = 'r',
-        default_value = "false",
-        default_missing_value = "true"
-    )]
-    pub randomize: bool,
-
-    /// File path containing a list of options to be used, in place of other arguments
-    #[arg(long = "script", short = 'f', default_value = "")]
-    pub script: String,
+    /// Number of requests to make for each endpoint
+    #[arg(long, short = 'n', default_value_t = 1)]
+    pub iterations: usize,
 
     /// Target endpoint to make an http requests against
     #[arg(long = "endpoint", short = 'e', default_value = "")]
@@ -43,13 +32,13 @@ pub struct Config {
     #[arg(long, short = 'x', default_value = "")]
     pub headers: Vec<String>,
 
-    /// Number of requests to make for each endpoint
-    #[arg(long, short = 'n', default_value_t = 1)]
-    pub iterations: usize,
-
     /// Built in sleep duration (in milliseconds) to be used when making multiple requests
     #[arg(long = "sleep", short = 's', default_value = "0")]
     pub sleep: u64,
+
+    /// File path containing a list of options to be used, in place of other arguments
+    #[arg(long = "script", short = 'f', default_value = "")]
+    pub script: String,
 
     /// Number of parallel requests
     #[arg(long = "pool-size", short = 'p', default_value = "100")]
@@ -58,6 +47,17 @@ pub struct Config {
     /// Output format; options: default, json, csv, (with features) yaml, json
     #[arg(long = "output", short = 'o', default_value = "default")]
     pub output: String,
+
+    /// Randomize 'endpoint' or 'headers';
+    /// TIMESTAMP is replaced with a timestamp,
+    /// RANDOM is replaced with a random number
+    #[arg(
+        long = "random",
+        short = 'r',
+        default_value = "false",
+        default_missing_value = "true"
+    )]
+    pub randomize: bool,
 
     /// Enable verbose output
     #[arg(

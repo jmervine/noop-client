@@ -45,15 +45,15 @@ This is a (hopefully) simple method of sending http requests (kind of like curl)
 Usage: noop-client [OPTIONS]
 
 Options:
-  -r, --random                   Randomize 'endpoint' or 'headers'; TIMESTAMP is replaced with a timestamp, RANDOM is replaced with a random number
-  -f, --script <SCRIPT>          File path containing a list of options to be used, in place of other arguments [default: ]
+  -n, --iterations <ITERATIONS>  Number of requests to make for each endpoint [default: 1]
   -e, --endpoint <ENDPOINT>      Target endpoint to make an http requests against [default: ]
   -m, --method <METHOD>          Method to be used when making an http requests [default: GET]
   -x, --headers <HEADERS>        Headers to be used when making an http requests [default: ]
-  -n, --iterations <ITERATIONS>  Number of requests to make for each endpoint [default: 1]
   -s, --sleep <SLEEP>            Built in sleep duration (in milliseconds) to be used when making multiple requests [default: 0]
+  -f, --script <SCRIPT>          File path containing a list of options to be used, in place of other arguments [default: ]
   -p, --pool-size <POOL_SIZE>    Number of parallel requests [default: 100]
   -o, --output <OUTPUT>          Output format; options: default, json, csv, (with features) yaml, json [default: default]
+  -r, --random                   Randomize 'endpoint' or 'headers'; TIMESTAMP is replaced with a timestamp, RANDOM is replaced with a random number
   -v, --verbose                  Enable verbose output
   -D, --debug                    Enable debug output
   -E, --errors                   Enable error output for requests
