@@ -78,6 +78,7 @@ impl State {
         };
     }
 
+    #[cfg(feature = "json")]
     pub fn to_json(&self) -> String {
         return serde_json::to_string(&self.to_seralizer()).expect("failed to seralize json");
     }

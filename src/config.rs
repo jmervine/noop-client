@@ -1,12 +1,20 @@
 use crate::errors::ClientError;
-use std::ffi;
 use std::fs;
-use std::path;
 use std::{thread, time};
+
+#[cfg(feature = "json")]
+use std::ffi;
+
+#[cfg(feature = "json")]
+use std::path;
 
 use clap::Parser;
 use serde_derive::Deserialize;
 
+#[cfg(feature = "json")]
+static VALID_OUTPUTS: [&str; 2] = ["default", "csv"];
+
+#[cfg(not(feature = "json"))]
 static VALID_OUTPUTS: [&str; 3] = ["default", "json", "csv"];
 
 /// This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
@@ -41,10 +49,18 @@ pub struct Config {
     #[arg(long = "pool-size", short = 'p', default_value = "100")]
     pub pool_size: usize,
 
+    // --- < output options > ---
+    #[cfg(feature = "json")]
     /// Output format; options: default, json, csv
     #[arg(long = "output", short = 'o', default_value = "default")]
     pub output: String,
 
+    #[cfg(not(feature = "json"))]
+    /// Output format; options: default, csv
+    #[arg(long = "output", short = 'o', default_value = "default")]
+    pub output: String,
+    // --- < / output options > ---
+    //
     /// Enable verbose output
     #[arg(
         long = "verbose",
@@ -119,6 +135,7 @@ impl Config {
         return true;
     }
 
+    #[cfg(feature = "json")]
     fn script_ext(&self) -> Result<String, ClientError> {
         let extension = path::Path::new(&self.script)
             .extension()
@@ -193,6 +210,7 @@ impl Config {
         return Ok(configs);
     }
 
+    #[cfg(feature = "json")]
     fn from_json(&self) -> Result<Vec<Config>, ClientError> {
         let script_body = self.script_body()?;
 
@@ -215,6 +233,7 @@ impl Config {
             return Ok(configs);
         }
 
+        #[cfg(feature = "json")]
         if self.script_ext()? == "json".to_string() {
             return self.from_json();
         }
@@ -312,6 +331,7 @@ fn verbose_test() {
 }
 
 #[test]
+#[cfg(feature = "json")]
 fn script_ext_test() {
     let mut c = test_config();
     assert!(c.script_ext().is_err());
