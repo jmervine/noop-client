@@ -27,6 +27,11 @@ run_script:
 	$(RUN) --bin $(BIN) -- --script=test/test_script.txt \
 		--endpoint=http://localhost:3000/default --verbose
 
+run_json_script:
+	# run with script file
+	$(RUN) --bin $(BIN) -- --script=test/test_script.json \
+		--endpoint=http://localhost:3000/default --verbose
+
 run_json:
 	# run with script file
 	$(RUN) --bin $(BIN) -- --script=test/test_script.txt \

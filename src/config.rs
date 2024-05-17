@@ -75,7 +75,7 @@ pub struct Config {
     pub errors: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 struct ConfigDeserializer {
     pub iterations: usize,
     pub method: String,
@@ -121,17 +121,19 @@ impl Config {
         return true;
     }
 
-    // fn script_ext(&self) -> Result<String, ClientError> {
-    //     let extension = Path::new(&self.script).extension().and_then(OsStr::to_str);
-    //     match extension {
-    //         Some(extension) => return Ok(extension.to_string()),
-    //         None => {
-    //             return Err(ClientError::ConfigError(
-    //                 "invalid script extension".to_string(),
-    //             ))
-    //         }
-    //     }
-    // }
+    fn script_ext(&self) -> Result<String, ClientError> {
+        let extension = std::path::Path::new(&self.script)
+            .extension()
+            .and_then(std::ffi::OsStr::to_str);
+        match extension {
+            Some(extension) => return Ok(extension.to_string()),
+            None => {
+                return Err(ClientError::ConfigError(
+                    "invalid script extension".to_string(),
+                ))
+            }
+        }
+    }
 
     fn script_body(&self) -> Result<String, ClientError> {
         let script = self.script.clone();
@@ -144,6 +146,32 @@ impl Config {
                 ))
             }
         }
+    }
+
+    fn deserialize(&self, record: ConfigDeserializer) -> Config {
+        let mut config: Config = self.clone();
+
+        if record.iterations != 0 {
+            config.iterations = record.iterations;
+        }
+
+        if !record.method.is_empty() {
+            config.method = record.method;
+        }
+
+        if !record.endpoint.is_empty() {
+            config.endpoint = record.endpoint;
+        }
+
+        if !record.headers.is_empty() {
+            config.endpoint = record.headers;
+        }
+
+        if record.sleep != 0 {
+            config.sleep = record.sleep;
+        }
+
+        return config;
     }
 
     fn from_csv(&self) -> Result<Vec<Config>, ClientError> {
@@ -159,30 +187,23 @@ impl Config {
                 return Err(ClientError::ConfigError(record.unwrap_err().to_string()));
             }
 
-            let record: ConfigDeserializer = record.unwrap();
-            let mut config = self.clone();
-
-            if record.iterations != 0 {
-                config.iterations = record.iterations;
-            }
-
-            if !record.method.is_empty() {
-                config.method = record.method;
-            }
-
-            if !record.endpoint.is_empty() {
-                config.endpoint = record.endpoint;
-            }
-
-            if !record.headers.is_empty() {
-                config.endpoint = record.headers;
-            }
-
-            if record.sleep != 0 {
-                config.sleep = record.sleep;
-            }
+            let config: Config = self.deserialize(record.unwrap());
 
             configs.push(config);
+        }
+
+        return Ok(configs);
+    }
+
+    fn from_json(&self) -> Result<Vec<Config>, ClientError> {
+        let script_body = self.script_body()?;
+
+        let mut configs: Vec<Config> = vec![];
+        let records: Vec<ConfigDeserializer> =
+            serde_json::from_str(&script_body).expect("Bad JSON");
+
+        for record in records {
+            configs.push(self.deserialize(record));
         }
 
         return Ok(configs);
@@ -194,6 +215,10 @@ impl Config {
         if !self.has_file() {
             configs.push(self.clone());
             return Ok(configs);
+        }
+
+        if self.script_ext()? == "json".to_string() {
+            return self.from_json();
         }
 
         return self.from_csv();
@@ -286,4 +311,31 @@ fn verbose_test() {
 
     c.verbose = true;
     assert!(c.verbose);
+}
+
+#[test]
+fn script_ext_test() {
+    let mut c = test_config();
+    assert!(c.script_ext().is_err());
+
+    c.script = "/foo.csv".to_string();
+    assert_eq!(c.script_ext().unwrap(), "csv");
+}
+
+#[test]
+fn deserialize_test() {
+    let cfg = test_config();
+    let r = ConfigDeserializer {
+        iterations: 5,
+        method: "GET".to_string(),
+        endpoint: "https://www.example.com/".to_string(),
+        headers: String::new(),
+        sleep: 0,
+    };
+
+    let c = cfg.deserialize(r);
+
+    assert_eq!(c.iterations, 5);
+    assert_eq!(c.method, "GET".to_string());
+    assert_eq!(c.endpoint, "https://www.example.com/".to_string());
 }

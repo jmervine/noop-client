@@ -3,5 +3,5 @@ iterations|method|endpoint|headers|sleep
 1|POST|http://localhost:3000/request2|User-Agent:noop-client;X-Test:run2|10
 1|DELETE|http://localhost:3000/request3|User-Agent:noop-client;X-Test:run3|10
 1|GET|http://localhost:3000/request4|User-Agent:noop-client;X-Test:run4|10
-0||http://localhost:3000/emptyOK||0
+0||http://localhost:3000/request5||0
 1|GET|bad_endpoint|X-Error:true|0
