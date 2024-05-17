@@ -8,7 +8,7 @@ static SPLIT_HEADER_VALUE_CHAR: [char; 2] = [':', '='];
 pub struct Client {
     pub method: String,
     pub endpoint: String,
-    headers: Vec<(String, String)>,
+    pub headers: Vec<(String, String)>,
     debug: bool,
 }
 
@@ -16,7 +16,7 @@ impl Client {
     pub fn new(config: config::Config) -> Result<Client, ClientError> {
         let mut headers = Vec::<(String, String)>::new();
 
-        for header in config.headers {
+        for header in config.headers() {
             let header = header.to_header()?;
             if header.0 != "" {
                 headers.push(header);
@@ -24,8 +24,8 @@ impl Client {
         }
 
         return Ok(Client {
-            method: config.method,
-            endpoint: config.endpoint,
+            method: config.method.clone(),
+            endpoint: config.endpoint(),
             headers: headers,
             debug: config.debug,
         });
@@ -54,6 +54,16 @@ impl Client {
             }
             Err(err) => return Err(ClientError::HTTPError(err.to_string())),
         }
+    }
+
+    pub fn headers(&self) -> String {
+        let mut headers = Vec::with_capacity(self.headers.len());
+
+        for h in self.headers.clone() {
+            headers.push(format!("{}:{}", h.0, h.1));
+        }
+
+        return headers.join(";");
     }
 }
 
@@ -115,6 +125,7 @@ fn client_new_test() {
         debug: false,
         errors: false,
         output: "default".to_string(),
+        randomize: true,
     };
 
     let cli = Client::new(cfg.clone());

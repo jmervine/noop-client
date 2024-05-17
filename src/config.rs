@@ -9,15 +9,16 @@ use std::ffi;
 use std::path;
 
 use clap::Parser;
+use rand::Rng;
 use serde_derive::Deserialize;
 
 /// This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct Config {
-    /// File path containing a list of options to be used, in place of other arguments
-    #[arg(long = "script", short = 'f', default_value = "")]
-    pub script: String,
+    /// Number of requests to make for each endpoint
+    #[arg(long, short = 'n', default_value_t = 1)]
+    pub iterations: usize,
 
     /// Target endpoint to make an http requests against
     #[arg(long = "endpoint", short = 'e', default_value = "")]
@@ -31,13 +32,13 @@ pub struct Config {
     #[arg(long, short = 'x', default_value = "")]
     pub headers: Vec<String>,
 
-    /// Number of requests to make for each endpoint
-    #[arg(long, short = 'n', default_value_t = 1)]
-    pub iterations: usize,
-
     /// Built in sleep duration (in milliseconds) to be used when making multiple requests
     #[arg(long = "sleep", short = 's', default_value = "0")]
     pub sleep: u64,
+
+    /// File path containing a list of options to be used, in place of other arguments
+    #[arg(long = "script", short = 'f', default_value = "")]
+    pub script: String,
 
     /// Number of parallel requests
     #[arg(long = "pool-size", short = 'p', default_value = "100")]
@@ -46,6 +47,17 @@ pub struct Config {
     /// Output format; options: default, json, csv, (with features) yaml, json
     #[arg(long = "output", short = 'o', default_value = "default")]
     pub output: String,
+
+    /// Randomize 'endpoint' or 'headers';
+    /// TIMESTAMP is replaced with a timestamp,
+    /// RANDOM is replaced with a random number
+    #[arg(
+        long = "random",
+        short = 'r',
+        default_value = "false",
+        default_missing_value = "true"
+    )]
+    pub randomize: bool,
 
     /// Enable verbose output
     #[arg(
@@ -145,6 +157,29 @@ impl Config {
         }
     }
 
+    pub fn headers(&self) -> Vec<String> {
+        if !self.randomize {
+            return self.headers.clone();
+        }
+
+        let mut headers: Vec<String> = Vec::with_capacity(self.headers.len());
+        for header in self.headers.clone() {
+            headers.push(Config::randomize_string(header));
+        }
+
+        return headers;
+    }
+
+    pub fn endpoint(&self) -> String {
+        let endpoint = self.endpoint.clone();
+
+        if !self.randomize {
+            return endpoint;
+        }
+
+        return Config::randomize_string(endpoint);
+    }
+
     fn has_file(&self) -> bool {
         if self.script.is_empty() {
             return false;
@@ -209,6 +244,29 @@ impl Config {
         }
 
         return config;
+    }
+
+    fn now() -> String {
+        return time::SystemTime::now()
+            .duration_since(time::SystemTime::UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_millis()
+            .to_string();
+    }
+
+    fn randomize_string(mut s: String) -> String {
+        if s.contains("RANDOM") {
+            let rnd: u32 = rand::thread_rng().gen();
+
+            s = s.replace("RANDOM", &rnd.to_string());
+        }
+
+        if s.contains("TIMESTAMP") {
+            let now = Config::now();
+            s = s.replace("TIMESTAMP", &now);
+        }
+
+        return s;
     }
 
     fn from_csv(&self) -> Result<Vec<Config>, ClientError> {
@@ -302,6 +360,7 @@ fn test_config() -> Config {
         iterations: 1,
         pool_size: 1,
         output: "default".to_string(),
+        randomize: false,
     }
 }
 
