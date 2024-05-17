@@ -15,6 +15,15 @@ use serde_derive::Deserialize;
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct Config {
+    /// Replace 'RANDOM' with a timestamp int in 'endpoint' or 'headers'
+    #[arg(
+        long = "random",
+        short = 'r',
+        default_value = "false",
+        default_missing_value = "true"
+    )]
+    pub randomize: bool,
+
     /// File path containing a list of options to be used, in place of other arguments
     #[arg(long = "script", short = 'f', default_value = "")]
     pub script: String,
@@ -143,6 +152,39 @@ impl Config {
         if sleep > time::Duration::ZERO {
             thread::sleep(sleep);
         }
+    }
+
+    pub fn headers(&self) -> Vec<String> {
+        if !self.randomize {
+            return self.headers.clone();
+        }
+
+        let now = time::SystemTime::now()
+            .duration_since(time::SystemTime::UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_millis()
+            .to_string();
+
+        let mut headers: Vec<String> = Vec::with_capacity(self.headers.len());
+        for header in self.headers.clone() {
+            headers.push(header.replace("RANDOM", &now));
+        }
+
+        return headers;
+    }
+
+    pub fn endpoint(&self) -> String {
+        if !self.randomize {
+            return self.endpoint.clone();
+        }
+
+        let now = time::SystemTime::now()
+            .duration_since(time::SystemTime::UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_millis()
+            .to_string();
+
+        return self.endpoint.replace("RANDOM", &now);
     }
 
     fn has_file(&self) -> bool {
@@ -302,6 +344,7 @@ fn test_config() -> Config {
         iterations: 1,
         pool_size: 1,
         output: "default".to_string(),
+        randomize: false,
     }
 }
 

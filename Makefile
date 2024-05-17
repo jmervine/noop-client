@@ -17,6 +17,13 @@ run:
 	# run no args, except what's required
 	$(RUN) --bin $(BIN) -- --endpoint=https://www.example.com/
 
+.PHONY: run_rand
+run_rand:
+	# ---------------------------------------------------------------------------- #
+	# run no args, except what's required
+	# -> show error to prove rand
+	$(RUN) --bin $(BIN) -- --endpoint=https://www.example.com/RANDOM/ -r -v -E
+
 .PHONY: run_args
 run_args:
 	# ---------------------------------------------------------------------------- #
@@ -78,7 +85,7 @@ test: check clean
 	cargo test --features=all --bin $(BIN)
 
 .PHONY: regression
-regression: test run_outputs run_scripts
+regression: test run run_rand run_outputs run_scripts
 
 .PHONY: check
 check:

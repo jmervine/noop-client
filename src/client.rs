@@ -16,7 +16,7 @@ impl Client {
     pub fn new(config: config::Config) -> Result<Client, ClientError> {
         let mut headers = Vec::<(String, String)>::new();
 
-        for header in config.headers {
+        for header in config.headers() {
             let header = header.to_header()?;
             if header.0 != "" {
                 headers.push(header);
@@ -24,8 +24,8 @@ impl Client {
         }
 
         return Ok(Client {
-            method: config.method,
-            endpoint: config.endpoint,
+            method: config.method.clone(),
+            endpoint: config.endpoint(),
             headers: headers,
             debug: config.debug,
         });
@@ -115,6 +115,7 @@ fn client_new_test() {
         debug: false,
         errors: false,
         output: "default".to_string(),
+        randomize: true,
     };
 
     let cli = Client::new(cfg.clone());
