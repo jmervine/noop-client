@@ -37,7 +37,7 @@ $ docker run --rm jmervine/noop-client:latest -e https://www.example.com/ -n 10 
 
 ### Usage - help
 ```
-$ ./target/release/noop-client -h
+$ noop-client -h
 This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
 
 Usage: noop-client [OPTIONS]
@@ -60,13 +60,13 @@ Options:
 
 ### Usage - basic
 ```
-$ ./target/release/noop-client  --endpoint=https://www.example.com/
+$ noop-client  --endpoint=https://www.example.com/
 requested=1 processed=1 success=1 fail=0 error=0 duration=328.080207ms
 
-$ ./target/release/noop-client  --endpoint=https://www.example.com/ --output json
+$ noop-client  --endpoint=https://www.example.com/ --output json
 {"took":66,"requested":1,"processed":1,"success":1,"fail":0,"error":0}
 
-$ ./target/release/noop-client  --endpoint=https://www.example.com/ --output csv
+$ noop-client  --endpoint=https://www.example.com/ --output csv
 took,requested,processed,success,fail,error
 53,1,1,1,0,0
 ```
@@ -93,7 +93,7 @@ $ echo "
 1|GET|bad_endpoint|X-Error:true|0
 " > script.txt
 
-./target/release/noop-client --script=test/test_script.txt --verbose
+noop-client --script=test/test_script.txt --verbose
 ```
 
 output:
