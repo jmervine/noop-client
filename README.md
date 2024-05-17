@@ -28,6 +28,13 @@ cargo install --features=all --path .
 - `json`: support json scripts and/or json output
 - `yaml`: support yaml scripts
 
+## Usage
+
+### Docker example
+```
+$ docker run --rm jmervine/noop-client:latest -e https://www.example.com/ -n 10 -s 100 -p 1
+```
+
 ### Usage - help
 ```
 $ ./target/release/noop-client -h
