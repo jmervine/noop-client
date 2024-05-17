@@ -13,9 +13,14 @@ make test run_help
 
 These targets will give you some ideas on how to use it.
 
-## Build
+## Install
+
+### Build
 ```
-cargo build --bin noop-client
+cargo install --path .
+
+# with features
+cargo install --features=all --path .
 ```
 
 ### Features
