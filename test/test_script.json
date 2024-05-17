@@ -29,15 +29,12 @@
   },
   {
     "iterations": 0,
-    "method": "",
     "endpoint": "http://localhost:3000/request5",
-    "headers": "",
     "sleep": 0
   },
   {
     "iterations": 1,
     "method": "GET",
-    "endpoint": "",
     "headers": "X-Error:true",
     "sleep": 0
   }

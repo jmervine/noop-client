@@ -1,12 +1,13 @@
 [package]
 name = "noop-client"
-version = "1.1.2"
+version = "1.2.0"
 edition = "2021"
 
 [features]
 default = []
 json = ["dep:serde_json"]
 yaml = ["dep:serde_yaml"]
+all = ["json", "yaml"]
 
 [[bin]]
 name = "noop-client"

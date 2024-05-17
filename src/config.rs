@@ -2,20 +2,14 @@ use crate::errors::ClientError;
 use std::fs;
 use std::{thread, time};
 
-#[cfg(feature = "json")]
+#[cfg(any(feature = "json", feature = "yaml"))]
 use std::ffi;
 
-#[cfg(feature = "json")]
+#[cfg(any(feature = "json", feature = "yaml"))]
 use std::path;
 
 use clap::Parser;
 use serde_derive::Deserialize;
-
-#[cfg(feature = "json")]
-static VALID_OUTPUTS: [&str; 2] = ["default", "csv"];
-
-#[cfg(not(feature = "json"))]
-static VALID_OUTPUTS: [&str; 3] = ["default", "json", "csv"];
 
 /// This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
 #[derive(Parser, Debug, Clone)]
@@ -89,12 +83,33 @@ pub struct Config {
     pub errors: bool,
 }
 
+fn default_string() -> String {
+    return String::new();
+}
+
+fn default_usize() -> usize {
+    return 0;
+}
+
+fn default_u64() -> u64 {
+    return 0;
+}
+
 #[derive(Debug, Deserialize, Default)]
 struct ConfigDeserializer {
+    #[serde(default = "default_usize")]
     pub iterations: usize,
+
+    #[serde(default = "default_string")]
     pub method: String,
+
+    #[serde(default = "default_string")]
     pub endpoint: String,
+
+    #[serde(default = "default_string")]
     pub headers: String,
+
+    #[serde(default = "default_u64")]
     pub sleep: u64,
 }
 
@@ -111,9 +126,24 @@ impl Config {
         )));
     }
 
+    fn valid_outputs(&self) -> Vec<&str> {
+        #[allow(unused)]
+        let mut outputs = vec!["default", "csv"];
+
+        #[cfg(feature = "json")]
+        outputs.push("json");
+
+        #[cfg(feature = "yaml")]
+        outputs.push("yaml");
+
+        return outputs;
+    }
+
     pub fn is_valid(&self) -> bool {
+        let o = self.valid_outputs();
+
         return !(self.endpoint.is_empty() && self.script.is_empty())
-            && VALID_OUTPUTS.contains(&self.output.as_str());
+            && o.contains(&self.output.as_str());
     }
 
     pub fn sleep(&self) {
@@ -135,7 +165,7 @@ impl Config {
         return true;
     }
 
-    #[cfg(feature = "json")]
+    #[cfg(any(feature = "json", feature = "yaml"))]
     fn script_ext(&self) -> Result<String, ClientError> {
         let extension = path::Path::new(&self.script)
             .extension()
@@ -210,13 +240,30 @@ impl Config {
         return Ok(configs);
     }
 
+    #[cfg(feature = "yaml")]
+    fn from_yaml(&self) -> Result<Vec<Config>, ClientError> {
+        let script_body = self.script_body()?;
+
+        let mut configs: Vec<Config> = vec![];
+
+        let expect = format!("Bad YAML from {}", self.script);
+        let records: Vec<ConfigDeserializer> = serde_yaml::from_str(&script_body).expect(&expect);
+
+        for record in records {
+            configs.push(self.deserialize(record));
+        }
+
+        return Ok(configs);
+    }
+
     #[cfg(feature = "json")]
     fn from_json(&self) -> Result<Vec<Config>, ClientError> {
         let script_body = self.script_body()?;
 
         let mut configs: Vec<Config> = vec![];
-        let records: Vec<ConfigDeserializer> =
-            serde_json::from_str(&script_body).expect("Bad JSON");
+
+        let expect = format!("Bad JSON from {}", self.script);
+        let records: Vec<ConfigDeserializer> = serde_json::from_str(&script_body).expect(&expect);
 
         for record in records {
             configs.push(self.deserialize(record));
@@ -231,6 +278,11 @@ impl Config {
         if !self.has_file() {
             configs.push(self.clone());
             return Ok(configs);
+        }
+
+        #[cfg(feature = "yaml")]
+        if self.script_ext()? == "yaml".to_string() {
+            return self.from_yaml();
         }
 
         #[cfg(feature = "json")]
@@ -331,13 +383,13 @@ fn verbose_test() {
 }
 
 #[test]
-#[cfg(feature = "json")]
+#[cfg(any(feature = "json", feature = "yaml"))]
 fn script_ext_test() {
     let mut c = test_config();
     assert!(c.script_ext().is_err());
 
-    c.script = "/foo.csv".to_string();
-    assert_eq!(c.script_ext().unwrap(), "csv");
+    c.script = "/foo.json".to_string();
+    assert_eq!(c.script_ext().unwrap(), "json");
 }
 
 #[test]
