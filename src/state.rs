@@ -78,6 +78,7 @@ impl State {
         };
     }
 
+    #[cfg(feature = "json")]
     pub fn to_json(&self) -> String {
         return serde_json::to_string(&self.to_seralizer()).expect("failed to seralize json");
     }
@@ -87,7 +88,7 @@ impl State {
         wtrb.has_headers(true);
         let mut wtr = wtrb.from_writer(vec![]);
         wtr.serialize(&self.to_seralizer())?;
-        return Ok(String::from_utf8(wtr.into_inner()?)?);
+        return Ok(String::from_utf8(wtr.into_inner()?)?.trim().to_owned());
     }
 }
 

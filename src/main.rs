@@ -52,7 +52,13 @@ fn main() -> Result<(), ClientError> {
             thread::sleep(time::Duration::from_millis(250));
             println!("{}", state.string());
         } else if output == "json" {
+            // This will be unreachable without json feature because "json" will not be a valid output
+
+            #[cfg(feature = "json")]
             println!("{}", state.to_json());
+
+            #[cfg(not(feature = "json"))]
+            panic!("It should not be possible for output to equal json");
         } else if output == "csv" {
             match state.to_csv() {
                 Ok(csv) => println!("{}", csv),

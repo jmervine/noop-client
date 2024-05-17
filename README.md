@@ -13,6 +13,21 @@ make test run_help
 
 These targets will give you some ideas on how to use it.
 
+## Install
+
+### Build
+```
+cargo install --path .
+
+# with features
+cargo install --features=all --path .
+```
+
+### Features
+- `all`: all features
+- `json`: support json scripts and/or json output
+- `yaml`: support yaml scripts
+
 ### Usage - help
 ```
 $ ./target/release/noop-client -h
@@ -28,13 +43,12 @@ Options:
   -n, --iterations <ITERATIONS>  Number of requests to make for each endpoint [default: 1]
   -s, --sleep <SLEEP>            Built in sleep duration (in milliseconds) to be used when making multiple requests [default: 0]
   -p, --pool-size <POOL_SIZE>    Number of parallel requests [default: 100]
-  -o, --output <OUTPUT>          Output format; options: default, json, csv [default: default]
+  -o, --output <OUTPUT>          Output format; options: default, json, csv, (with features) yaml, json [default: default]
   -v, --verbose                  Enable verbose output
   -D, --debug                    Enable debug output
   -E, --errors                   Enable error output for requests
   -h, --help                     Print help
   -V, --version                  Print version
-
 ```
 
 ### Usage - basic
@@ -51,6 +65,8 @@ took,requested,processed,success,fail,error
 ```
 
 ### Usage - script file
+See example scripts files in the [test](test) directory.
+
 > Example uses https://github.com/jmervine/noop-server running in another window.
 ```
 $ echo "

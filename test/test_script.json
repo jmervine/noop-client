@@ -1,0 +1,41 @@
+[
+  {
+    "iterations": 6,
+    "method": "GET",
+    "endpoint": "http://localhost:3000/request1",
+    "headers": "User-Agent:noop-client;X-Test:run1",
+    "sleep": 100
+  },
+  {
+    "iterations": 1,
+    "method": "POST",
+    "endpoint": "http://localhost:3000/request2",
+    "headers": "User-Agent:noop-client;X-Test:run2",
+    "sleep": 10
+  },
+  {
+    "iterations": 1,
+    "method": "DELETE",
+    "endpoint": "http://localhost:3000/request3",
+    "headers": "User-Agent:noop-client;X-Test:run3",
+    "sleep": 10
+  },
+  {
+    "iterations": 1,
+    "method": "GET",
+    "endpoint": "http://localhost:3000/request4",
+    "headers": "User-Agent:noop-client;X-Test:run4",
+    "sleep": 10
+  },
+  {
+    "iterations": 0,
+    "endpoint": "http://localhost:3000/request5",
+    "sleep": 0
+  },
+  {
+    "iterations": 1,
+    "method": "GET",
+    "headers": "X-Error:true",
+    "sleep": 0
+  }
+]

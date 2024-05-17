@@ -1,13 +1,15 @@
 use crate::errors::ClientError;
-use std::fs::{self, File};
-use std::io;
+use std::fs;
 use std::{thread, time};
 
-use clap::Parser;
+#[cfg(any(feature = "json", feature = "yaml"))]
+use std::ffi;
 
-static SPLIT_SCRIPT_CHAR: char = '|';
-static SPLIT_HEADER_CHAR: char = ';';
-static VALID_OUTPUTS: [&str; 3] = ["default", "json", "csv"];
+#[cfg(any(feature = "json", feature = "yaml"))]
+use std::path;
+
+use clap::Parser;
+use serde_derive::Deserialize;
 
 /// This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
 #[derive(Parser, Debug, Clone)]
@@ -41,7 +43,7 @@ pub struct Config {
     #[arg(long = "pool-size", short = 'p', default_value = "100")]
     pub pool_size: usize,
 
-    /// Output format; options: default, json, csv
+    /// Output format; options: default, json, csv, (with features) yaml, json
     #[arg(long = "output", short = 'o', default_value = "default")]
     pub output: String,
 
@@ -73,6 +75,36 @@ pub struct Config {
     pub errors: bool,
 }
 
+fn default_string() -> String {
+    return String::new();
+}
+
+fn default_usize() -> usize {
+    return 0;
+}
+
+fn default_u64() -> u64 {
+    return 0;
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct ConfigDeserializer {
+    #[serde(default = "default_usize")]
+    pub iterations: usize,
+
+    #[serde(default = "default_string")]
+    pub method: String,
+
+    #[serde(default = "default_string")]
+    pub endpoint: String,
+
+    #[serde(default = "default_string")]
+    pub headers: String,
+
+    #[serde(default = "default_u64")]
+    pub sleep: u64,
+}
+
 impl Config {
     pub fn new() -> Result<Self, ClientError> {
         let config = Config::parse();
@@ -86,9 +118,24 @@ impl Config {
         )));
     }
 
+    fn valid_outputs(&self) -> Vec<&str> {
+        #[allow(unused)]
+        let mut outputs = vec!["default", "csv"];
+
+        #[cfg(feature = "json")]
+        outputs.push("json");
+
+        #[cfg(feature = "yaml")]
+        outputs.push("yaml");
+
+        return outputs;
+    }
+
     pub fn is_valid(&self) -> bool {
+        let o = self.valid_outputs();
+
         return !(self.endpoint.is_empty() && self.script.is_empty())
-            && VALID_OUTPUTS.contains(&self.output.as_str());
+            && o.contains(&self.output.as_str());
     }
 
     pub fn sleep(&self) {
@@ -110,6 +157,113 @@ impl Config {
         return true;
     }
 
+    #[cfg(any(feature = "json", feature = "yaml"))]
+    fn script_ext(&self) -> Result<String, ClientError> {
+        let extension = path::Path::new(&self.script)
+            .extension()
+            .and_then(ffi::OsStr::to_str);
+        match extension {
+            Some(extension) => return Ok(extension.to_string()),
+            None => {
+                return Err(ClientError::ConfigError(
+                    "invalid script extension".to_string(),
+                ))
+            }
+        }
+    }
+
+    fn script_body(&self) -> Result<String, ClientError> {
+        let script = self.script.clone();
+        let content = fs::read_to_string(script);
+        match content {
+            Ok(content) => return Ok(content),
+            Err(_) => {
+                return Err(ClientError::ConfigError(
+                    "invalid script file path".to_string(),
+                ))
+            }
+        }
+    }
+
+    fn deserialize(&self, record: ConfigDeserializer) -> Config {
+        let mut config: Config = self.clone();
+
+        if record.iterations != 0 {
+            config.iterations = record.iterations;
+        }
+
+        if !record.method.is_empty() {
+            config.method = record.method;
+        }
+
+        if !record.endpoint.is_empty() {
+            config.endpoint = record.endpoint;
+        }
+
+        if !record.headers.is_empty() {
+            config.endpoint = record.headers;
+        }
+
+        if record.sleep != 0 {
+            config.sleep = record.sleep;
+        }
+
+        return config;
+    }
+
+    fn from_csv(&self) -> Result<Vec<Config>, ClientError> {
+        let script_body = self.script_body()?;
+
+        let mut reader = csv::ReaderBuilder::new()
+            .delimiter(b'|')
+            .from_reader(script_body.as_bytes());
+
+        let mut configs: Vec<Config> = vec![];
+        for record in reader.deserialize() {
+            if record.is_err() {
+                return Err(ClientError::ConfigError(record.unwrap_err().to_string()));
+            }
+
+            let config: Config = self.deserialize(record.unwrap());
+
+            configs.push(config);
+        }
+
+        return Ok(configs);
+    }
+
+    #[cfg(feature = "yaml")]
+    fn from_yaml(&self) -> Result<Vec<Config>, ClientError> {
+        let script_body = self.script_body()?;
+
+        let mut configs: Vec<Config> = vec![];
+
+        let expect = format!("Bad YAML from {}", self.script);
+        let records: Vec<ConfigDeserializer> = serde_yaml::from_str(&script_body).expect(&expect);
+
+        for record in records {
+            configs.push(self.deserialize(record));
+        }
+
+        return Ok(configs);
+    }
+
+    #[cfg(feature = "json")]
+    fn from_json(&self) -> Result<Vec<Config>, ClientError> {
+        let script_body = self.script_body()?;
+
+        let mut configs: Vec<Config> = vec![];
+
+        let expect = format!("Bad JSON from {}", self.script);
+        let records: Vec<ConfigDeserializer> = serde_json::from_str(&script_body).expect(&expect);
+
+        for record in records {
+            configs.push(self.deserialize(record));
+        }
+
+        return Ok(configs);
+    }
+
     pub fn to_vector(&self) -> Result<Vec<Config>, ClientError> {
         let mut configs: Vec<Config> = vec![];
 
@@ -118,101 +272,17 @@ impl Config {
             return Ok(configs);
         }
 
-        let content = File::open(self.script.clone());
-        if content.is_err() {
-            return Err(ClientError::ConfigError(content.unwrap_err().to_string()));
+        #[cfg(feature = "yaml")]
+        if self.script_ext()? == "yaml".to_string() {
+            return self.from_yaml();
         }
 
-        let content = content.unwrap();
-
-        let lines = io::BufRead::lines(io::BufReader::new(content));
-
-        for (idx, line) in lines.enumerate() {
-            if line.is_err() {
-                return Err(ClientError::ConfigError(line.unwrap_err().to_string()));
-            }
-
-            let line = line.unwrap();
-
-            if line.is_empty() || line.starts_with("#") {
-                continue;
-            }
-
-            let mut new = self.clone();
-
-            // Find the number of '|' characters (+1) to to match the number of fields (to be clear)
-            let pipe_count = line.chars().filter(|&c| c == '|').count() + 1;
-            if pipe_count != 5 {
-                return Err(ClientError::ConfigError(format!(
-                    "Found {} of 5 expected fields in '{}' for file:'{}', entry:'{}'",
-                    pipe_count, line, self.script, idx
-                )));
-            }
-
-            let mut parts = line.split(SPLIT_SCRIPT_CHAR).map(|p| p.to_string());
-
-            // Fetch for iterations, or use default from 'new'
-            if let Some(i) = parts.next() {
-                let u: Result<usize, _> = i.parse();
-                let itr = u.unwrap_or(0);
-                if itr > 0 {
-                    new.iterations = itr
-                }
-            }
-
-            if let Some(m) = parts.next() {
-                if !m.is_empty() {
-                    new.method = m
-                }
-            }
-
-            if let Some(e) = parts.next() {
-                if !e.is_empty() {
-                    new.endpoint = e;
-                }
-            }
-
-            if new.endpoint.is_empty() {
-                return Err(ClientError::ConfigError(format!(
-                    "Empty endpoint without a default in '{}' for file:'{}', entry:'{}'",
-                    line, self.script, idx
-                )));
-            }
-
-            // Fetch for headers, or use default from 'new'
-            if let Some(h) = parts.next() {
-                if !h.is_empty() {
-                    new.headers = h.split(SPLIT_HEADER_CHAR).map(|s| s.to_string()).collect()
-                }
-            }
-
-            if let Some(sleep) = parts.next() {
-                if !sleep.is_empty() {
-                    match sleep.parse::<u64>() {
-                        Ok(sleep) => {
-                            new.sleep = sleep;
-                        }
-                        Err(_) => {
-                            return Err(ClientError::ConfigError(format!(
-                                "Couldn't convert '{:}' to duration for sleep in '{}' for file:'{}', entry:'{}'",
-                                sleep, line, self.script, idx
-                            )));
-                        }
-                    }
-                }
-            }
-
-            // panic if not valid
-            if !new.is_valid() {
-                return Err(ClientError::ConfigError(
-                    "Invalid configurations, see help for details.".to_string(),
-                ));
-            }
-
-            configs.push(new);
+        #[cfg(feature = "json")]
+        if self.script_ext()? == "json".to_string() {
+            return self.from_json();
         }
 
-        Ok(configs)
+        return self.from_csv();
     }
 }
 
@@ -302,4 +372,32 @@ fn verbose_test() {
 
     c.verbose = true;
     assert!(c.verbose);
+}
+
+#[test]
+#[cfg(any(feature = "json", feature = "yaml"))]
+fn script_ext_test() {
+    let mut c = test_config();
+    assert!(c.script_ext().is_err());
+
+    c.script = "/foo.json".to_string();
+    assert_eq!(c.script_ext().unwrap(), "json");
+}
+
+#[test]
+fn deserialize_test() {
+    let cfg = test_config();
+    let r = ConfigDeserializer {
+        iterations: 5,
+        method: "GET".to_string(),
+        endpoint: "https://www.example.com/".to_string(),
+        headers: String::new(),
+        sleep: 0,
+    };
+
+    let c = cfg.deserialize(r);
+
+    assert_eq!(c.iterations, 5);
+    assert_eq!(c.method, "GET".to_string());
+    assert_eq!(c.endpoint, "https://www.example.com/".to_string());
 }
