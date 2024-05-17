@@ -7,8 +7,6 @@ use std::{thread, time};
 use clap::Parser;
 use serde_derive::Deserialize;
 
-// static SPLIT_SCRIPT_CHAR: char = '|';
-// static SPLIT_HEADER_CHAR: char = ';';
 static VALID_OUTPUTS: [&str; 3] = ["default", "json", "csv"];
 
 /// This is a (hopefully) simple method of sending http requests (kind of like curl). Either directly; or via a pipe delimited text file
