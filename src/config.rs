@@ -43,18 +43,10 @@ pub struct Config {
     #[arg(long = "pool-size", short = 'p', default_value = "100")]
     pub pool_size: usize,
 
-    // --- < output options > ---
-    #[cfg(feature = "json")]
-    /// Output format; options: default, json, csv
+    /// Output format; options: default, json, csv, (with features) yaml, json
     #[arg(long = "output", short = 'o', default_value = "default")]
     pub output: String,
 
-    #[cfg(not(feature = "json"))]
-    /// Output format; options: default, csv
-    #[arg(long = "output", short = 'o', default_value = "default")]
-    pub output: String,
-    // --- < / output options > ---
-    //
     /// Enable verbose output
     #[arg(
         long = "verbose",
