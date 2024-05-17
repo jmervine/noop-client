@@ -1,8 +1,8 @@
 use crate::errors::ClientError;
+use std::ffi;
 use std::fs;
+use std::path;
 use std::{thread, time};
-// use std::ffi::OsStr;
-// use std::path::Path;
 
 use clap::Parser;
 use serde_derive::Deserialize;
@@ -122,9 +122,9 @@ impl Config {
     }
 
     fn script_ext(&self) -> Result<String, ClientError> {
-        let extension = std::path::Path::new(&self.script)
+        let extension = path::Path::new(&self.script)
             .extension()
-            .and_then(std::ffi::OsStr::to_str);
+            .and_then(ffi::OsStr::to_str);
         match extension {
             Some(extension) => return Ok(extension.to_string()),
             None => {
